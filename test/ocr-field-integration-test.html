@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCRエンジンとフィールド抽出の統合テスト</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .test-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .test-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .test-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .log-container {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <h1>OCRエンジンとフィールド抽出の統合テスト</h1>
+    
+    <div class="test-container">
+        <h2>テスト制御</h2>
+        <button id="run-basic-test">基本統合テスト実行</button>
+        <button id="run-error-test">エラーハンドリングテスト実行</button>
+        <button id="run-performance-test">パフォーマンステスト実行</button>
+        <button id="clear-log">ログクリア</button>
+        
+        <div class="progress-bar" id="progress-bar" style="display: none;">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div id="progress-text" style="display: none;"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>テスト結果</h2>
+        <div id="test-results"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>詳細ログ</h2>
+        <div id="log-container" class="log-container"></div>
+    </div>
+
+    <!-- 必要なライブラリの読み込み -->
+    <script src="../js/field-extractor.js"></script>
+    <script src="../js/ocr-engine.js"></script>
+    <script src="../js/error-handler.js"></script>
+    <script src="../js/error-display.js"></script>
+
+    <script>
+        class OCRFieldIntegrationTest {
+            constructor() {
+                this.testResults = [];
+                this.logContainer = document.getElementById('log-container');
+                this.resultsContainer = document.getElementById('test-results');
+                this.progressBar = document.getElementById('progress-bar');
+                this.progressFill = document.getElementById('progress-fill');
+                this.progressText = document.getElementById('progress-text');
+                
+                this.bindEvents();
+                this.log('統合テストシステム初期化完了');
+            }
+
+            bindEvents() {
+                document.getElementById('run-basic-test').addEventListener('click', () => this.runBasicIntegrationTest());
+                document.getElementById('run-error-test').addEventListener('click', () => this.runErrorHandlingTest());
+                document.getElementById('run-performance-test').addEventListener('click', () => this.runPerformanceTest());
+                document.getElementById('clear-log').addEventListener('click', () => this.clearLog());
+            }
+
+            log(message, level = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+                
+                const logElement = document.createElement('div');
+                logElement.textContent = logEntry;
+                logElement.style.color = this.getLogColor(level);
+                
+                this.logContainer.appendChild(logElement);
+                this.logContainer.scrollTop = this.logContainer.scrollHeight;
+                
+                console.log(logEntry);
+            }
+
+            getLogColor(level) {
+                switch (level) {
+                    case 'error': return '#dc3545';
+                    case 'warn': return '#ffc107';
+                    case 'success': return '#28a745';
+                    case 'info': return '#17a2b8';
+                    default: return '#333';
+                }
+            }
+
+            showProgress(message, progress) {
+                this.progressBar.style.display = 'block';
+                this.progressText.style.display = 'block';
+                this.progressText.textContent = message;
+                this.progressFill.style.width = `${progress}%`;
+            }
+
+            hideProgress() {
+                this.progressBar.style.display = 'none';
+                this.progressText.style.display = 'none';
+            }
+
+            addTestResult(testName, success, message, details = null) {
+                const result = {
+                    testName,
+                    success,
+                    message,
+                    details,
+                    timestamp: new Date()
+                };
+                
+                this.testResults.push(result);
+                this.displayTestResult(result);
+            }
+
+            displayTestResult(result) {
+                const resultElement = document.createElement('div');
+                resultElement.className = `test-result ${result.success ? 'test-success' : 'test-error'}`;
+                
+                resultElement.innerHTML = `
+                    <strong>${result.testName}</strong>: ${result.success ? '✅ 成功' : '❌ 失敗'}
+                    <br>
+                    <span>${result.message}</span>
+                    ${result.details ? `<br><small>${result.details}</small>` : ''}
+                    <br>
+                    <small>実行時刻: ${result.timestamp.toLocaleTimeString()}</small>
+                `;
+                
+                this.resultsContainer.appendChild(resultElement);
+            }
+
+            clearLog() {
+                this.logContainer.innerHTML = '';
+                this.resultsContainer.innerHTML = '';
+                this.testResults = [];
+                this.hideProgress();
+                this.log('ログをクリアしました');
+            }
+
+            // 基本統合テスト
+            async runBasicIntegrationTest() {
+                this.log('基本統合テストを開始します', 'info');
+                this.showProgress('基本統合テストを実行中...', 0);
+                
+                try {
+                    // フィールド抽出器のテスト
+                    this.showProgress('フィールド抽出器をテスト中...', 20);
+                    await this.testFieldExtractor();
+                    
+                    // OCRエンジンのテスト（モック）
+                    this.showProgress('OCRエンジンをテスト中...', 40);
+                    await this.testOCREngine();
+                    
+                    // 統合テスト
+                    this.showProgress('統合処理をテスト中...', 60);
+                    await this.testIntegration();
+                    
+                    this.showProgress('テスト完了', 100);
+                    this.addTestResult('基本統合テスト', true, '全てのテストが正常に完了しました');
+                    
+                } catch (error) {
+                    this.log(`基本統合テストエラー: ${error.message}`, 'error');
+                    this.addTestResult('基本統合テスト', false, error.message);
+                } finally {
+                    setTimeout(() => this.hideProgress(), 2000);
+                }
+            }
+
+            async testFieldExtractor() {
+                this.log('フィールド抽出器のテストを開始');
+                
+                if (typeof FieldExtractor === 'undefined') {
+                    throw new Error('FieldExtractorクラスが読み込まれていません');
+                }
+                
+                const fieldExtractor = new FieldExtractor();
+                
+                // サンプルテキストブロック
+                const sampleTextBlocks = [
+                    {
+                        text: '2024年3月15日',
+                        confidence: 0.95,
+                        boundingBox: { x: 100, y: 50, width: 120, height: 20 },
+                        fontSize: 14
+                    },
+                    {
+                        text: '株式会社テスト',
+                        confidence: 0.88,
+                        boundingBox: { x: 100, y: 100, width: 150, height: 25 },
+                        fontSize: 18
+                    },
+                    {
+                        text: '¥1,500',
+                        confidence: 0.92,
+                        boundingBox: { x: 200, y: 200, width: 80, height: 20 },
+                        fontSize: 16
+                    },
+                    {
+                        text: '会議費',
+                        confidence: 0.75,
+                        boundingBox: { x: 100, y: 250, width: 60, height: 18 },
+                        fontSize: 12
+                    }
+                ];
+                
+                const extractedFields = await fieldExtractor.extractFields(sampleTextBlocks);
+                
+                // 結果の検証
+                const expectedFields = ['date', 'payee', 'amount', 'purpose'];
+                for (const fieldName of expectedFields) {
+                    if (!extractedFields[fieldName]) {
+                        throw new Error(`フィールド ${fieldName} が抽出されませんでした`);
+                    }
+                    
+                    const field = extractedFields[fieldName];
+                    this.log(`${fieldName}: ${field.value} (信頼度: ${field.confidence})`, 'success');
+                }
+                
+                this.log('フィールド抽出器のテスト完了', 'success');
+            }
+
+            async testOCREngine() {
+                this.log('OCRエンジンのテストを開始');
+                
+                if (typeof OCREngine === 'undefined') {
+                    throw new Error('OCREngineクラスが読み込まれていません');
+                }
+                
+                // モックOCRエンジンを作成
+                const ocrEngine = new OCREngine({
+                    modelsPath: '../models/',
+                    backends: ['wasm'], // テスト用にWASMのみ使用
+                    fallbackToTesseract: true
+                });
+                
+                // 初期化状態の確認
+                const status = ocrEngine.getInitializationStatus();
+                this.log(`OCRエンジン状態: 初期化=${status.initialized}, フォールバック=${status.usingFallback}`);
+                
+                this.log('OCRエンジンのテスト完了', 'success');
+            }
+
+            async testIntegration() {
+                this.log('統合処理のテストを開始');
+                
+                // サンプルOCR結果を作成
+                const mockOCRResult = {
+                    textBlocks: [
+                        {
+                            text: '令和6年3月15日',
+                            confidence: 0.95,
+                            boundingBox: { x: 100, y: 50, width: 120, height: 20 },
+                            fontSize: 14,
+                            source: 'test'
+                        },
+                        {
+                            text: '株式会社サンプル',
+                            confidence: 0.88,
+                            boundingBox: { x: 100, y: 100, width: 150, height: 25 },
+                            fontSize: 18,
+                            source: 'test'
+                        },
+                        {
+                            text: '合計 ¥2,500',
+                            confidence: 0.92,
+                            boundingBox: { x: 200, y: 200, width: 100, height: 20 },
+                            fontSize: 16,
+                            source: 'test'
+                        },
+                        {
+                            text: '打合せ 飲食代',
+                            confidence: 0.75,
+                            boundingBox: { x: 100, y: 250, width: 120, height: 18 },
+                            fontSize: 12,
+                            source: 'test'
+                        }
+                    ],
+                    confidence: 0.87,
+                    processingTime: 1500,
+                    engine: 'test'
+                };
+                
+                // フィールド抽出器でOCR結果を処理
+                const fieldExtractor = new FieldExtractor();
+                const extractedFields = await fieldExtractor.extractFields(mockOCRResult.textBlocks);
+                
+                // 結果の検証
+                this.log('統合処理結果:');
+                Object.entries(extractedFields).forEach(([fieldName, fieldData]) => {
+                    this.log(`  ${fieldName}: ${fieldData.value} (信頼度: ${fieldData.confidence.toFixed(2)})`);
+                });
+                
+                // 期待値との比較
+                if (extractedFields.date.value.includes('2024')) {
+                    this.log('日付変換テスト: 成功', 'success');
+                } else {
+                    throw new Error('日付変換が正しく動作していません');
+                }
+                
+                if (extractedFields.amount.value === 2500) {
+                    this.log('金額抽出テスト: 成功', 'success');
+                } else {
+                    throw new Error('金額抽出が正しく動作していません');
+                }
+                
+                this.log('統合処理のテスト完了', 'success');
+            }
+
+            // エラーハンドリングテスト
+            async runErrorHandlingTest() {
+                this.log('エラーハンドリングテストを開始します', 'info');
+                this.showProgress('エラーハンドリングテストを実行中...', 0);
+                
+                try {
+                    // 無効なデータでのテスト
+                    this.showProgress('無効データテスト中...', 25);
+                    await this.testInvalidDataHandling();
+                    
+                    // 空データでのテスト
+                    this.showProgress('空データテスト中...', 50);
+                    await this.testEmptyDataHandling();
+                    
+                    // エラー回復テスト
+                    this.showProgress('エラー回復テスト中...', 75);
+                    await this.testErrorRecovery();
+                    
+                    this.showProgress('エラーハンドリングテスト完了', 100);
+                    this.addTestResult('エラーハンドリングテスト', true, '全てのエラーケースが正常に処理されました');
+                    
+                } catch (error) {
+                    this.log(`エラーハンドリングテストエラー: ${error.message}`, 'error');
+                    this.addTestResult('エラーハンドリングテスト', false, error.message);
+                } finally {
+                    setTimeout(() => this.hideProgress(), 2000);
+                }
+            }
+
+            async testInvalidDataHandling() {
+                this.log('無効データハンドリングテストを開始');
+                
+                const fieldExtractor = new FieldExtractor();
+                
+                // 無効なテキストブロック
+                const invalidTextBlocks = [
+                    { text: '', confidence: 0, boundingBox: null },
+                    { text: null, confidence: -1 },
+                    { text: undefined }
+                ];
+                
+                try {
+                    const result = await fieldExtractor.extractFields(invalidTextBlocks);
+                    this.log('無効データが適切に処理されました', 'success');
+                } catch (error) {
+                    this.log(`無効データ処理エラー: ${error.message}`, 'warn');
+                }
+            }
+
+            async testEmptyDataHandling() {
+                this.log('空データハンドリングテストを開始');
+                
+                const fieldExtractor = new FieldExtractor();
+                
+                try {
+                    const result = await fieldExtractor.extractFields([]);
+                    this.log('空データが適切に処理されました', 'success');
+                } catch (error) {
+                    this.log(`空データ処理エラー: ${error.message}`, 'warn');
+                }
+            }
+
+            async testErrorRecovery() {
+                this.log('エラー回復テストを開始');
+                
+                // エラーハンドラーのテスト
+                if (typeof ErrorHandler !== 'undefined') {
+                    const errorHandler = new ErrorHandler();
+                    
+                    try {
+                        const testError = new Error('テスト用エラー');
+                        const result = await errorHandler.handleError(testError, {
+                            operation: 'test',
+                            component: 'integration_test'
+                        });
+                        
+                        this.log('エラーハンドラーが正常に動作しました', 'success');
+                    } catch (error) {
+                        this.log(`エラーハンドラーテストエラー: ${error.message}`, 'warn');
+                    }
+                } else {
+                    this.log('ErrorHandlerが利用できません', 'warn');
+                }
+            }
+
+            // パフォーマンステスト
+            async runPerformanceTest() {
+                this.log('パフォーマンステストを開始します', 'info');
+                this.showProgress('パフォーマンステストを実行中...', 0);
+                
+                try {
+                    const startTime = performance.now();
+                    
+                    // 大量データでのテスト
+                    this.showProgress('大量データ処理テスト中...', 30);
+                    await this.testLargeDataProcessing();
+                    
+                    // 繰り返し処理テスト
+                    this.showProgress('繰り返し処理テスト中...', 60);
+                    await this.testRepeatedProcessing();
+                    
+                    const endTime = performance.now();
+                    const totalTime = endTime - startTime;
+                    
+                    this.showProgress('パフォーマンステスト完了', 100);
+                    this.addTestResult('パフォーマンステスト', true, `処理時間: ${totalTime.toFixed(2)}ms`);
+                    
+                } catch (error) {
+                    this.log(`パフォーマンステストエラー: ${error.message}`, 'error');
+                    this.addTestResult('パフォーマンステスト', false, error.message);
+                } finally {
+                    setTimeout(() => this.hideProgress(), 2000);
+                }
+            }
+
+            async testLargeDataProcessing() {
+                this.log('大量データ処理テストを開始');
+                
+                const fieldExtractor = new FieldExtractor();
+                
+                // 大量のテキストブロックを生成
+                const largeTextBlocks = [];
+                for (let i = 0; i < 100; i++) {
+                    largeTextBlocks.push({
+                        text: `テストテキスト${i}`,
+                        confidence: Math.random(),
+                        boundingBox: { x: i * 10, y: i * 5, width: 100, height: 20 },
+                        fontSize: 12
+                    });
+                }
+                
+                const startTime = performance.now();
+                const result = await fieldExtractor.extractFields(largeTextBlocks);
+                const endTime = performance.now();
+                
+                this.log(`大量データ処理時間: ${(endTime - startTime).toFixed(2)}ms`, 'success');
+            }
+
+            async testRepeatedProcessing() {
+                this.log('繰り返し処理テストを開始');
+                
+                const fieldExtractor = new FieldExtractor();
+                const sampleTextBlocks = [
+                    {
+                        text: '2024年3月15日',
+                        confidence: 0.95,
+                        boundingBox: { x: 100, y: 50, width: 120, height: 20 },
+                        fontSize: 14
+                    }
+                ];
+                
+                const iterations = 50;
+                const startTime = performance.now();
+                
+                for (let i = 0; i < iterations; i++) {
+                    await fieldExtractor.extractFields(sampleTextBlocks);
+                }
+                
+                const endTime = performance.now();
+                const avgTime = (endTime - startTime) / iterations;
+                
+                this.log(`繰り返し処理平均時間: ${avgTime.toFixed(2)}ms/回`, 'success');
+            }
+        }
+
+        // テストシステムの初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            new OCRFieldIntegrationTest();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# PLACEHOLDER: Text Angle Classification Model
+# This is a placeholder file for the text angle classification ONNX model.
+#
+# The actual model file should be:
+# - A trained CNN model for text orientation classification
+# - Classifies text images into 0°, 90°, 180°, 270° orientations
+# - Optimized for ONNX Runtime Web
+# - Input: Text region images
+# - Output: 4-class probability distribution
+# - Typical size: 1-10MB
+#
+# To obtain the actual model:
+# 1. Train an angle classification model on rotated text images
+# 2. Ensure 4-class output (0°, 90°, 180°, 270°)
+# 3. Convert to ONNX format with appropriate optimization
+# 4. Test compatibility with ONNX Runtime Web
+# 5. Replace this placeholder file
+#
+# Expected input shape: [1, 3, height, width] (text region image)
+# Expected output: [1, 4] probability distribution for 4 angles

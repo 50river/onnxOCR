@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>モデルファイル配置テスト</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        button { 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .file-info { margin: 5px 0; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🤖 モデルファイル配置テスト</h1>
+    <p>このテストは、必要なONNXモデルファイルが正しく配置されているかを確認します。</p>
+    
+    <button onclick="runTests()">テスト実行</button>
+    <button onclick="clearResults()">結果クリア</button>
+    
+    <div id="results"></div>
+
+    <script src="../models/validate-models.js"></script>
+    <script>
+        const resultsDiv = document.getElementById('results');
+        
+        function clearResults() {
+            resultsDiv.innerHTML = '';
+        }
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            resultsDiv.appendChild(div);
+        }
+        
+        async function runTests() {
+            clearResults();
+            addResult('🔍 モデルファイル配置テストを開始します...', 'info');
+            
+            try {
+                // Test 1: Check if all required files exist
+                addResult('<h3>📁 ファイル存在確認</h3>', 'info');
+                
+                const requiredFiles = [
+                    'models/text_det.onnx',
+                    'models/text_rec_jp.onnx',
+                    'models/text_angle.onnx',
+                    'models/charset_jp.txt'
+                ];
+                
+                let allFilesExist = true;
+                
+                for (const filePath of requiredFiles) {
+                    try {
+                        const response = await fetch(`../${filePath}`);
+                        const size = response.headers.get('content-length');
+                        const sizeText = size ? ` (${(size / 1024).toFixed(1)}KB)` : '';
+                        
+                        if (response.ok) {
+                            addResult(`✅ ${filePath}${sizeText}`, 'success');
+                        } else {
+                            addResult(`❌ ${filePath} - HTTP ${response.status}`, 'error');
+                            allFilesExist = false;
+                        }
+                    } catch (error) {
+                        addResult(`❌ ${filePath} - ${error.message}`, 'error');
+                        allFilesExist = false;
+                    }
+                }
+                
+                // Test 2: Validate charset file content
+                addResult('<h3>📝 文字セットファイル検証</h3>', 'info');
+                
+                try {
+                    const response = await fetch('../models/charset_jp.txt');
+                    if (response.ok) {
+                        const text = await response.text();
+                        const lines = text.split('\n');
+                        const characters = lines.filter(line => line.trim() && !line.startsWith('#'));
+                        
+                        addResult(`✅ 文字セット読み込み成功: ${characters.length}文字`, 'success');
+                        
+                        // Check for essential character types
+                        const hasNumbers = /[0-9]/.test(text);
+                        const hasHiragana = /[あ-ん]/.test(text);
+                        const hasKatakana = /[ア-ン]/.test(text);
+                        const hasKanji = /[一-龯]/.test(text);
+                        
+                        addResult(`数字: ${hasNumbers ? '✅' : '❌'} | ひらがな: ${hasHiragana ? '✅' : '❌'} | カタカナ: ${hasKatakana ? '✅' : '❌'} | 漢字: ${hasKanji ? '✅' : '❌'}`, 
+                                hasNumbers && hasHiragana && hasKatakana && hasKanji ? 'success' : 'warning');
+                        
+                        // Show first few characters as sample
+                        const sampleChars = characters.slice(0, 20).join('');
+                        addResult(`サンプル文字: <code>${sampleChars}...</code>`, 'info');
+                        
+                    } else {
+                        addResult(`❌ 文字セットファイル読み込み失敗`, 'error');
+                    }
+                } catch (error) {
+                    addResult(`❌ 文字セット検証エラー: ${error.message}`, 'error');
+                }
+                
+                // Test 3: Check ONNX file formats (basic)
+                addResult('<h3>🤖 ONNXファイル形式確認</h3>', 'info');
+                
+                const onnxFiles = ['text_det.onnx', 'text_rec_jp.onnx', 'text_angle.onnx'];
+                
+                for (const filename of onnxFiles) {
+                    try {
+                        const response = await fetch(`../models/${filename}`);
+                        if (response.ok) {
+                            const buffer = await response.arrayBuffer();
+                            const uint8Array = new Uint8Array(buffer);
+                            const firstBytes = Array.from(uint8Array.slice(0, 20))
+                                .map(b => String.fromCharCode(b))
+                                .join('');
+                            
+                            const isPlaceholder = firstBytes.startsWith('#');
+                            const size = (buffer.byteLength / 1024 / 1024).toFixed(2);
+                            
+                            if (isPlaceholder) {
+                                addResult(`⚠️ ${filename} - プレースホルダーファイル (${size}MB)`, 'warning');
+                                addResult(`💡 実際の訓練済みモデルに置き換えてください`, 'info');
+                            } else {
+                                addResult(`✅ ${filename} - バイナリファイル (${size}MB)`, 'success');
+                            }
+                        }
+                    } catch (error) {
+                        addResult(`❌ ${filename} 確認エラー: ${error.message}`, 'error');
+                    }
+                }
+                
+                // Test 4: OCR Engine compatibility check
+                addResult('<h3>🔧 OCRエンジン互換性確認</h3>', 'info');
+                
+                try {
+                    // Check if OCR engine can be instantiated with these model paths
+                    const config = {
+                        modelsPath: '../models/',
+                        backends: ['wasm', 'webgl', 'webgpu']
+                    };
+                    
+                    addResult(`✅ モデルパス設定: ${config.modelsPath}`, 'success');
+                    addResult(`✅ 対応バックエンド: ${config.backends.join(', ')}`, 'success');
+                    
+                    // Note about actual initialization
+                    addResult(`💡 実際のOCRエンジン初期化は、実モデルファイル配置後に可能になります`, 'info');
+                    
+                } catch (error) {
+                    addResult(`❌ OCRエンジン設定エラー: ${error.message}`, 'error');
+                }
+                
+                // Summary
+                addResult('<h3>📋 テスト結果サマリー</h3>', 'info');
+                
+                if (allFilesExist) {
+                    addResult('✅ 全ての必要ファイルが配置されています', 'success');
+                    addResult('⚠️ ONNXファイルはプレースホルダーです。実際の訓練済みモデルに置き換えてください。', 'warning');
+                    addResult('📖 詳細な手順は models/README.md を参照してください', 'info');
+                } else {
+                    addResult('❌ 一部のファイルが見つかりません', 'error');
+                }
+                
+            } catch (error) {
+                addResult(`❌ テスト実行エラー: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-run tests on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addResult('📄 ページが読み込まれました。「テスト実行」ボタンをクリックしてテストを開始してください。', 'info');
+        });
+    </script>
+</body>
+</html>

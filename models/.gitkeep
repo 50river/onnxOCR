@@ -1,6 +1,10 @@
-# Placeholder for ONNX models
-# Models will be added in later tasks:
-# - text_det.onnx (text detection model)
-# - text_rec_jp.onnx (Japanese text recognition model)
-# - text_angle.onnx (angle classification model)
-# - charset_jp.txt (Japanese character set)
+# ONNX Models Directory
+# Placeholder files have been created for all required models:
+# ✓ text_det.onnx (text detection model) - PLACEHOLDER
+# ✓ text_rec_jp.onnx (Japanese text recognition model) - PLACEHOLDER  
+# ✓ text_angle.onnx (angle classification model) - PLACEHOLDER
+# ✓ charset_jp.txt (Japanese character set) - FUNCTIONAL
+#
+# See README.md for instructions on obtaining actual trained models.
+# The charset_jp.txt file is functional and ready for use.
+# The .onnx files are placeholders that need to be replaced with actual trained models.

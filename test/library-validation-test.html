@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Validation Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .success { border-color: #22c55e; background-color: #f0fdf4; }
+        .error { border-color: #ef4444; background-color: #fef2f2; }
+        .pending { border-color: #f59e0b; background-color: #fffbeb; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        .button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+    <h1>📚 Library Validation Test</h1>
+    <p>This page tests that all required libraries are properly loaded and functional.</p>
+    
+    <div class="test-section pending" id="onnx-test">
+        <h3>🧠 ONNX Runtime Web</h3>
+        <p>Status: <span id="onnx-status">Loading...</span></p>
+        <pre id="onnx-details"></pre>
+    </div>
+    
+    <div class="test-section pending" id="tesseract-test">
+        <h3>👁️ Tesseract.js</h3>
+        <p>Status: <span id="tesseract-status">Loading...</span></p>
+        <pre id="tesseract-details"></pre>
+    </div>
+    
+    <div class="test-section pending" id="jszip-test">
+        <h3>📦 JSZip</h3>
+        <p>Status: <span id="jszip-status">Loading...</span></p>
+        <pre id="jszip-details"></pre>
+    </div>
+    
+    <div class="test-section pending" id="opencv-test">
+        <h3>🖼️ OpenCV.js</h3>
+        <p>Status: <span id="opencv-status">Loading...</span></p>
+        <pre id="opencv-details"></pre>
+    </div>
+    
+    <div class="test-section" id="summary">
+        <h3>📊 Summary</h3>
+        <p id="summary-text">Running tests...</p>
+        <button class="button" onclick="runTests()">Re-run Tests</button>
+        <button class="button" onclick="showSizeInfo()">Show Size Info</button>
+    </div>
+    
+    <div class="test-section" id="console-output">
+        <h3>🖥️ Console Output</h3>
+        <pre id="console-log"></pre>
+    </div>
+
+    <!-- Load libraries in the same order as main app -->
+    <script src="../libs/ort.min.js"></script>
+    <script src="../libs/tesseract.min.js"></script>
+    <script src="../libs/jszip.min.js"></script>
+    <script async src="../libs/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+    <script src="../libs/validate-libraries.js"></script>
+    
+    <script>
+        let consoleOutput = '';
+        
+        // Capture console output
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = function(...args) {
+            consoleOutput += args.join(' ') + '\n';
+            document.getElementById('console-log').textContent = consoleOutput;
+            originalLog.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            consoleOutput += 'ERROR: ' + args.join(' ') + '\n';
+            document.getElementById('console-log').textContent = consoleOutput;
+            originalError.apply(console, args);
+        };
+        
+        // OpenCV ready callback
+        function onOpenCvReady() {
+            console.log('OpenCV.js ready callback triggered');
+            runIndividualTests();
+        }
+        
+        // Test individual libraries
+        async function runIndividualTests() {
+            // Test ONNX Runtime
+            const onnxResult = await testONNX();
+            updateTestSection('onnx', onnxResult);
+            
+            // Test Tesseract
+            const tesseractResult = await testTesseract();
+            updateTestSection('tesseract', tesseractResult);
+            
+            // Test JSZip
+            const jszipResult = await testJSZip();
+            updateTestSection('jszip', jszipResult);
+            
+            // Test OpenCV
+            const opencvResult = await testOpenCV();
+            updateTestSection('opencv', opencvResult);
+            
+            // Update summary
+            updateSummary([onnxResult, tesseractResult, jszipResult, opencvResult]);
+        }
+        
+        async function testONNX() {
+            try {
+                if (typeof ort === 'undefined') {
+                    return { success: false, message: 'ONNX Runtime not loaded', details: 'ort object not found' };
+                }
+                
+                const details = `Version: ${ort.version || 'Unknown'}\nEnvironment: ${JSON.stringify(ort.env, null, 2)}`;
+                return { success: true, message: 'Loaded successfully', details };
+            } catch (error) {
+                return { success: false, message: 'Error during test', details: error.message };
+            }
+        }
+        
+        async function testTesseract() {
+            try {
+                if (typeof Tesseract === 'undefined') {
+                    return { success: false, message: 'Tesseract.js not loaded', details: 'Tesseract object not found' };
+                }
+                
+                const details = `Version: ${Tesseract.version || 'Unknown'}\nMethods available: ${Object.keys(Tesseract).join(', ')}`;
+                return { success: true, message: 'Loaded successfully', details };
+            } catch (error) {
+                return { success: false, message: 'Error during test', details: error.message };
+            }
+        }
+        
+        async function testJSZip() {
+            try {
+                if (typeof JSZip === 'undefined') {
+                    return { success: false, message: 'JSZip not loaded', details: 'JSZip object not found' };
+                }
+                
+                // Test basic functionality
+                const zip = new JSZip();
+                zip.file('test.txt', 'Hello World');
+                const content = await zip.generateAsync({type: 'blob'});
+                
+                const details = `Version: ${JSZip.version || 'Unknown'}\nTest file created: ${content.size} bytes`;
+                return { success: true, message: 'Loaded and tested successfully', details };
+            } catch (error) {
+                return { success: false, message: 'Error during test', details: error.message };
+            }
+        }
+        
+        async function testOpenCV() {
+            try {
+                if (typeof cv === 'undefined') {
+                    return { success: false, message: 'OpenCV.js not loaded', details: 'cv object not found' };
+                }
+                
+                // Test basic functionality
+                const mat = new cv.Mat();
+                const size = mat.size();
+                mat.delete();
+                
+                const details = `Build info available: ${typeof cv.getBuildInformation === 'function'}\nTest matrix created: ${size.width}x${size.height}`;
+                return { success: true, message: 'Loaded and tested successfully', details };
+            } catch (error) {
+                return { success: false, message: 'Error during test', details: error.message };
+            }
+        }
+        
+        function updateTestSection(library, result) {
+            const section = document.getElementById(`${library}-test`);
+            const status = document.getElementById(`${library}-status`);
+            const details = document.getElementById(`${library}-details`);
+            
+            section.className = `test-section ${result.success ? 'success' : 'error'}`;
+            status.textContent = result.message;
+            details.textContent = result.details;
+        }
+        
+        function updateSummary(results) {
+            const successful = results.filter(r => r.success).length;
+            const total = results.length;
+            const summaryText = document.getElementById('summary-text');
+            
+            if (successful === total) {
+                summaryText.innerHTML = `✅ All ${total} libraries loaded successfully!`;
+            } else {
+                summaryText.innerHTML = `⚠️ ${successful}/${total} libraries loaded successfully. Check failed tests above.`;
+            }
+        }
+        
+        function runTests() {
+            consoleOutput = '';
+            document.getElementById('console-log').textContent = '';
+            runIndividualTests();
+        }
+        
+        function showSizeInfo() {
+            console.log('\n📏 Library Size Information:');
+            console.log('  ort.min.js: ~557 KB');
+            console.log('  tesseract.min.js: ~66 KB');
+            console.log('  jszip.min.js: ~95 KB');
+            console.log('  opencv.js: ~9.7 MB');
+            console.log('  Total: ~10.5 MB');
+        }
+        
+        // Start tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (typeof cv !== 'undefined') {
+                    runIndividualTests();
+                } else {
+                    console.log('Waiting for OpenCV.js to load...');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

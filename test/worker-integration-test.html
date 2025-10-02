@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Worker統合テスト</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .test-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-failure {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .test-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #progress {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        #progress-bar {
+            height: 100%;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <h1>Web Worker統合テスト</h1>
+    
+    <div class="test-info">
+        <p>このテストはOCR Worker Managerの基本的な機能をテストします。</p>
+    </div>
+    
+    <div>
+        <button onclick="runBasicTest()">基本テスト実行</button>
+        <button onclick="runProgressTest()">進行状況テスト実行</button>
+        <button onclick="runErrorTest()">エラーハンドリングテスト実行</button>
+        <button onclick="clearResults()">結果クリア</button>
+    </div>
+    
+    <div id="progress" style="display: none;">
+        <div id="progress-bar"></div>
+    </div>
+    <div id="progress-text" style="display: none;"></div>
+    
+    <div id="test-results"></div>
+
+    <!-- Load required libraries -->
+    <script src="../libs/ort.min.js"></script>
+    <script src="../libs/tesseract.min.js"></script>
+    
+    <!-- Load application scripts -->
+    <script src="../js/ocr-engine.js"></script>
+    <script src="../js/ocr-worker-manager.js"></script>
+    
+    <script>
+        let workerManager = null;
+        
+        function addTestResult(testName, success, message, details = null) {
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${success ? 'test-success' : 'test-failure'}`;
+            
+            let content = `<strong>${testName}:</strong> ${success ? '✅ 成功' : '❌ 失敗'}<br>`;
+            content += `<em>${message}</em>`;
+            
+            if (details) {
+                content += `<br><small>${details}</small>`;
+            }
+            
+            resultDiv.innerHTML = content;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        function showProgress(message, progress) {
+            const progressDiv = document.getElementById('progress');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            
+            progressDiv.style.display = 'block';
+            progressText.style.display = 'block';
+            progressText.textContent = message;
+            progressBar.style.width = `${progress}%`;
+        }
+        
+        function hideProgress() {
+            document.getElementById('progress').style.display = 'none';
+            document.getElementById('progress-text').style.display = 'none';
+        }
+        
+        async function runBasicTest() {
+            try {
+                addTestResult('基本テスト開始', true, 'OCR Worker Managerの基本機能をテストします');
+                
+                // Worker Managerの作成
+                workerManager = new OCRWorkerManager({
+                    workerPath: '../js/ocr-worker.js',
+                    timeout: 10000
+                });
+                
+                addTestResult('Worker Manager作成', true, 'OCRWorkerManagerインスタンスが作成されました');
+                
+                // 初期化
+                const initResult = await workerManager.initialize({
+                    modelsPath: '../models/',
+                    backends: ['wasm'], // テスト用に安定したバックエンドを使用
+                    fallbackToTesseract: true
+                });
+                
+                addTestResult('Worker Manager初期化', true, 
+                    `初期化完了 - バックエンド: ${initResult.backend}, フォールバック: ${initResult.usingFallback}`);
+                
+                // 状態確認
+                const status = await workerManager.getStatus();
+                addTestResult('状態確認', status.initialized, 
+                    `初期化状態: ${status.initialized}`);
+                
+                // テスト画像データの作成
+                const testImageData = createTestImageData();
+                
+                // OCR処理テスト
+                const ocrResult = await workerManager.processImage(testImageData, {
+                    progressCallback: (message, progress) => {
+                        console.log(`進行状況: ${message} (${progress}%)`);
+                    }
+                });
+                
+                addTestResult('OCR処理', true, 
+                    `OCR処理完了 - エンジン: ${ocrResult.engine}, 信頼度: ${ocrResult.confidence}`);
+                
+            } catch (error) {
+                addTestResult('基本テスト', false, error.message);
+                console.error('基本テストエラー:', error);
+            }
+        }
+        
+        async function runProgressTest() {
+            try {
+                addTestResult('進行状況テスト開始', true, '進行状況通知機能をテストします');
+                
+                if (!workerManager) {
+                    workerManager = new OCRWorkerManager({
+                        workerPath: '../js/ocr-worker.js',
+                        timeout: 10000
+                    });
+                    await workerManager.initialize({
+                        modelsPath: '../models/',
+                        backends: ['wasm'],
+                        fallbackToTesseract: true
+                    });
+                }
+                
+                const testImageData = createTestImageData();
+                let progressCount = 0;
+                
+                const ocrResult = await workerManager.processImage(testImageData, {
+                    progressCallback: (message, progress) => {
+                        progressCount++;
+                        showProgress(message, progress);
+                        console.log(`進行状況 ${progressCount}: ${message} (${progress}%)`);
+                    }
+                });
+                
+                hideProgress();
+                
+                addTestResult('進行状況テスト', progressCount > 0, 
+                    `進行状況通知回数: ${progressCount}回`);
+                
+            } catch (error) {
+                hideProgress();
+                addTestResult('進行状況テスト', false, error.message);
+                console.error('進行状況テストエラー:', error);
+            }
+        }
+        
+        async function runErrorTest() {
+            try {
+                addTestResult('エラーハンドリングテスト開始', true, 'エラー処理機能をテストします');
+                
+                // 無効なWorkerパスでテスト
+                const errorWorkerManager = new OCRWorkerManager({
+                    workerPath: '../js/invalid-worker.js',
+                    timeout: 5000
+                });
+                
+                try {
+                    await errorWorkerManager.initialize();
+                    addTestResult('エラーハンドリング', false, '期待されたエラーが発生しませんでした');
+                } catch (error) {
+                    addTestResult('エラーハンドリング', true, 
+                        `期待通りエラーが発生: ${error.message}`);
+                }
+                
+                // タイムアウトテスト
+                const timeoutWorkerManager = new OCRWorkerManager({
+                    workerPath: '../js/ocr-worker.js',
+                    timeout: 100 // 100msの短いタイムアウト
+                });
+                
+                try {
+                    await timeoutWorkerManager.initialize();
+                    addTestResult('タイムアウトテスト', false, 'タイムアウトが発生しませんでした');
+                } catch (error) {
+                    addTestResult('タイムアウトテスト', true, 
+                        `タイムアウトエラー: ${error.message}`);
+                }
+                
+            } catch (error) {
+                addTestResult('エラーハンドリングテスト', false, error.message);
+                console.error('エラーハンドリングテストエラー:', error);
+            }
+        }
+        
+        function createTestImageData() {
+            // 100x100の白い画像を作成
+            const canvas = document.createElement('canvas');
+            canvas.width = 100;
+            canvas.height = 100;
+            const ctx = canvas.getContext('2d');
+            
+            // 白い背景
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, 100, 100);
+            
+            // 黒いテキスト風の矩形を描画
+            ctx.fillStyle = 'black';
+            ctx.fillRect(10, 10, 80, 10);
+            ctx.fillRect(10, 30, 60, 10);
+            ctx.fillRect(10, 50, 40, 10);
+            
+            return ctx.getImageData(0, 0, 100, 100);
+        }
+        
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            hideProgress();
+        }
+        
+        // ページロード時の初期化
+        window.addEventListener('load', () => {
+            addTestResult('テスト環境', true, 'Web Worker統合テストページが読み込まれました');
+        });
+        
+        // ページアンロード時のクリーンアップ
+        window.addEventListener('beforeunload', async () => {
+            if (workerManager) {
+                try {
+                    await workerManager.dispose();
+                } catch (error) {
+                    console.error('クリーンアップエラー:', error);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
