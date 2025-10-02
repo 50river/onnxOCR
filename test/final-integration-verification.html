@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最終統合検証テスト</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+        .summary {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>フィールド抽出器 - 最終統合検証テスト</h1>
+        <p>このテストは、フィールド抽出器がHTMLに正しく統合され、アプリケーションで使用できることを確認します。</p>
+        
+        <div class="test-section" id="script-loading">
+            <h3>1. スクリプト読み込み確認</h3>
+            <p id="script-status">確認中...</p>
+        </div>
+        
+        <div class="test-section" id="class-availability">
+            <h3>2. クラス利用可能性確認</h3>
+            <button onclick="testClassAvailability()">テスト実行</button>
+            <p id="class-status">未実行</p>
+        </div>
+        
+        <div class="test-section" id="error-handling">
+            <h3>3. エラーハンドリング確認</h3>
+            <button onclick="testErrorHandling()">テスト実行</button>
+            <p id="error-status">未実行</p>
+        </div>
+        
+        <div class="test-section" id="real-world-test">
+            <h3>4. 実世界データテスト</h3>
+            <button onclick="testRealWorldData()">テスト実行</button>
+            <p id="real-world-status">未実行</p>
+            <pre id="real-world-result"></pre>
+        </div>
+        
+        <div class="test-section" id="app-simulation">
+            <h3>5. アプリケーション統合シミュレーション</h3>
+            <button onclick="testAppIntegration()">テスト実行</button>
+            <p id="app-status">未実行</p>
+        </div>
+        
+        <div class="summary" id="test-summary" style="display: none;">
+            <h3>テスト結果サマリー</h3>
+            <div id="summary-content"></div>
+        </div>
+    </div>
+
+    <!-- 実際のアプリと同じスクリプト読み込み順序 -->
+    <script src="../js/field-extractor.js"></script>
+    
+    <script>
+        let testResults = {};
+        
+        // 1. スクリプト読み込み確認（自動実行）
+        function checkScriptLoading() {
+            const section = document.getElementById('script-loading');
+            const status = document.getElementById('script-status');
+            
+            if (typeof FieldExtractor !== 'undefined' && typeof window.FieldExtractor !== 'undefined') {
+                status.textContent = '✅ フィールド抽出器が正常に読み込まれました';
+                section.className = 'test-section success';
+                testResults.scriptLoading = true;
+            } else {
+                status.textContent = '❌ フィールド抽出器の読み込みに失敗しました';
+                section.className = 'test-section error';
+                testResults.scriptLoading = false;
+            }
+        }
+        
+        // 2. クラス利用可能性確認
+        function testClassAvailability() {
+            const section = document.getElementById('class-availability');
+            const status = document.getElementById('class-status');
+            
+            try {
+                // インスタンス化テスト
+                const extractor = new FieldExtractor();
+                
+                // 必要なメソッドの存在確認
+                const requiredMethods = ['extractFields', 'extractDate', 'extractAmount', 'extractPayee', 'extractPurpose'];
+                const missingMethods = requiredMethods.filter(method => typeof extractor[method] !== 'function');
+                
+                if (missingMethods.length === 0) {
+                    status.textContent = '✅ すべての必要なメソッドが利用可能です';
+                    section.className = 'test-section success';
+                    testResults.classAvailability = true;
+                } else {
+                    status.textContent = `⚠️ 不足しているメソッド: ${missingMethods.join(', ')}`;
+                    section.className = 'test-section warning';
+                    testResults.classAvailability = false;
+                }
+                
+            } catch (error) {
+                status.textContent = `❌ クラス利用可能性テストエラー: ${error.message}`;
+                section.className = 'test-section error';
+                testResults.classAvailability = false;
+            }
+        }
+        
+        // 3. エラーハンドリング確認
+        async function testErrorHandling() {
+            const section = document.getElementById('error-handling');
+            const status = document.getElementById('error-status');
+            
+            try {
+                const extractor = new FieldExtractor();
+                
+                // 各種エラーケースをテスト
+                const errorCases = [
+                    null,
+                    undefined,
+                    [],
+                    [{ invalidData: true }],
+                    [{ text: null }],
+                    [{ text: "valid", boundingBox: null }]
+                ];
+                
+                let errorHandlingSuccess = 0;
+                
+                for (const testCase of errorCases) {
+                    try {
+                        const result = await extractor.extractFields(testCase);
+                        
+                        // 結果が適切な構造を持っているかチェック
+                        if (result && result.date && result.payee && result.amount && result.purpose) {
+                            errorHandlingSuccess++;
+                        }
+                    } catch (error) {
+                        // エラーが発生した場合は失敗
+                        console.warn('Error handling test failed for case:', testCase, error);
+                    }
+                }
+                
+                const successRate = (errorHandlingSuccess / errorCases.length * 100).toFixed(1);
+                
+                if (errorHandlingSuccess === errorCases.length) {
+                    status.textContent = `✅ エラーハンドリングテスト成功 (${successRate}%)`;
+                    section.className = 'test-section success';
+                    testResults.errorHandling = true;
+                } else {
+                    status.textContent = `⚠️ 部分的成功 (${successRate}%)`;
+                    section.className = 'test-section warning';
+                    testResults.errorHandling = false;
+                }
+                
+            } catch (error) {
+                status.textContent = `❌ エラーハンドリングテストエラー: ${error.message}`;
+                section.className = 'test-section error';
+                testResults.errorHandling = false;
+            }
+        }
+        
+        // 4. 実世界データテスト
+        async function testRealWorldData() {
+            const section = document.getElementById('real-world-test');
+            const status = document.getElementById('real-world-status');
+            const result = document.getElementById('real-world-result');
+            
+            try {
+                const extractor = new FieldExtractor();
+                
+                // 実際の領収書に近いテストデータ
+                const testData = [
+                    {
+                        text: "株式会社テストマート",
+                        boundingBox: { x: 0.1, y: 0.1, width: 0.4, height: 0.06 },
+                        fontSize: 18
+                    },
+                    {
+                        text: "2024年3月15日",
+                        boundingBox: { x: 0.1, y: 0.2, width: 0.3, height: 0.04 },
+                        fontSize: 12
+                    },
+                    {
+                        text: "商品A",
+                        boundingBox: { x: 0.1, y: 0.4, width: 0.15, height: 0.04 },
+                        fontSize: 12
+                    },
+                    {
+                        text: "商品B",
+                        boundingBox: { x: 0.1, y: 0.45, width: 0.15, height: 0.04 },
+                        fontSize: 12
+                    },
+                    {
+                        text: "合計 ¥2,500",
+                        boundingBox: { x: 0.1, y: 0.7, width: 0.2, height: 0.04 },
+                        fontSize: 14
+                    }
+                ];
+                
+                const extractionResult = await extractor.extractFields(testData);
+                
+                // 結果の評価
+                const hasValidDate = extractionResult.date.value && extractionResult.date.value.match(/\d{4}\/\d{2}\/\d{2}/);
+                const hasValidPayee = extractionResult.payee.value && extractionResult.payee.value.length > 0;
+                const hasValidAmount = extractionResult.amount.value > 0;
+                const hasValidPurpose = extractionResult.purpose.value && extractionResult.purpose.value.length > 0;
+                
+                const extractedCount = [hasValidDate, hasValidPayee, hasValidAmount, hasValidPurpose].filter(Boolean).length;
+                
+                result.textContent = JSON.stringify(extractionResult, null, 2);
+                
+                if (extractedCount >= 3) {
+                    status.textContent = `✅ 実世界データテスト成功 (${extractedCount}/4項目抽出)`;
+                    section.className = 'test-section success';
+                    testResults.realWorldData = true;
+                } else {
+                    status.textContent = `⚠️ 部分的成功 (${extractedCount}/4項目抽出)`;
+                    section.className = 'test-section warning';
+                    testResults.realWorldData = false;
+                }
+                
+            } catch (error) {
+                status.textContent = `❌ 実世界データテストエラー: ${error.message}`;
+                section.className = 'test-section error';
+                result.textContent = error.stack;
+                testResults.realWorldData = false;
+            }
+        }
+        
+        // 5. アプリケーション統合シミュレーション
+        function testAppIntegration() {
+            const section = document.getElementById('app-simulation');
+            const status = document.getElementById('app-status');
+            
+            try {
+                // アプリケーションでの使用パターンをシミュレート
+                
+                // 1. グローバルスコープでの利用可能性
+                if (typeof window.FieldExtractor === 'undefined') {
+                    throw new Error('window.FieldExtractorが利用できません');
+                }
+                
+                // 2. アプリケーションでの初期化パターン
+                const fieldExtractor = new window.FieldExtractor();
+                
+                // 3. 初期化確認（app.jsのinitializeFieldExtractor()と同様）
+                if (typeof FieldExtractor === 'undefined') {
+                    throw new Error('FieldExtractorクラスが読み込まれていません');
+                }
+                
+                const testExtractor = new FieldExtractor();
+                
+                // 4. 基本プロパティの確認
+                if (!testExtractor.eraConversions || !testExtractor.datePatterns || 
+                    !testExtractor.amountPatterns || !testExtractor.companyPatterns) {
+                    throw new Error('必要なプロパティが初期化されていません');
+                }
+                
+                status.textContent = '✅ アプリケーション統合シミュレーション成功';
+                section.className = 'test-section success';
+                testResults.appIntegration = true;
+                
+            } catch (error) {
+                status.textContent = `❌ アプリケーション統合エラー: ${error.message}`;
+                section.className = 'test-section error';
+                testResults.appIntegration = false;
+            }
+            
+            // すべてのテストが完了したらサマリーを表示
+            showTestSummary();
+        }
+        
+        // テスト結果サマリーの表示
+        function showTestSummary() {
+            const summarySection = document.getElementById('test-summary');
+            const summaryContent = document.getElementById('summary-content');
+            
+            const totalTests = Object.keys(testResults).length;
+            const passedTests = Object.values(testResults).filter(Boolean).length;
+            const successRate = (passedTests / totalTests * 100).toFixed(1);
+            
+            let summaryHTML = `
+                <p><strong>テスト実行結果: ${passedTests}/${totalTests} 成功 (${successRate}%)</strong></p>
+                <ul>
+                    <li>スクリプト読み込み: ${testResults.scriptLoading ? '✅ 成功' : '❌ 失敗'}</li>
+                    <li>クラス利用可能性: ${testResults.classAvailability ? '✅ 成功' : '❌ 失敗'}</li>
+                    <li>エラーハンドリング: ${testResults.errorHandling ? '✅ 成功' : '❌ 失敗'}</li>
+                    <li>実世界データテスト: ${testResults.realWorldData ? '✅ 成功' : '❌ 失敗'}</li>
+                    <li>アプリケーション統合: ${testResults.appIntegration ? '✅ 成功' : '❌ 失敗'}</li>
+                </ul>
+            `;
+            
+            if (passedTests === totalTests) {
+                summaryHTML += '<p style="color: green; font-weight: bold;">🎉 すべてのテストが成功しました！フィールド抽出器のHTMLへの統合は完了しています。</p>';
+            } else {
+                summaryHTML += '<p style="color: orange; font-weight: bold;">⚠️ 一部のテストが失敗しました。統合に問題がある可能性があります。</p>';
+            }
+            
+            summaryContent.innerHTML = summaryHTML;
+            summarySection.style.display = 'block';
+        }
+        
+        // ページ読み込み時に自動実行
+        window.addEventListener('load', function() {
+            checkScriptLoading();
+        });
+    </script>
+</body>
+</html>

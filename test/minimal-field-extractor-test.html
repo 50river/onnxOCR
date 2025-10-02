@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>最小フィールド抽出器テスト</title>
+</head>
+<body>
+    <h1>最小フィールド抽出器テスト</h1>
+    <div id="result"></div>
+
+    <!-- フィールド抽出器のみを読み込み -->
+    <script src="../js/field-extractor.js"></script>
+    
+    <script>
+        const resultDiv = document.getElementById('result');
+        
+        try {
+            // 1. クラスの存在確認
+            if (typeof FieldExtractor === 'undefined') {
+                throw new Error('FieldExtractorが定義されていません');
+            }
+            
+            // 2. インスタンス化テスト
+            const extractor = new FieldExtractor();
+            
+            // 3. 基本プロパティの確認
+            if (!extractor.eraConversions || !extractor.datePatterns) {
+                throw new Error('必要なプロパティが初期化されていません');
+            }
+            
+            // 4. window.FieldExtractorの確認
+            if (typeof window.FieldExtractor === 'undefined') {
+                throw new Error('window.FieldExtractorが定義されていません');
+            }
+            
+            resultDiv.innerHTML = `
+                <p style="color: green;">✅ すべてのテストが成功しました</p>
+                <ul>
+                    <li>FieldExtractorクラス: 読み込み済み</li>
+                    <li>インスタンス化: 成功</li>
+                    <li>プロパティ初期化: 完了</li>
+                    <li>グローバルアクセス: 可能</li>
+                </ul>
+            `;
+            
+        } catch (error) {
+            resultDiv.innerHTML = `
+                <p style="color: red;">❌ テスト失敗: ${error.message}</p>
+            `;
+        }
+    </script>
+</body>
+</html>

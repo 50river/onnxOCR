@@ -59,11 +59,25 @@ class FieldExtractor {
      * @returns {Object} 抽出された領収書データ
      */
     async extractFields(textBlocks) {
+        // 入力データの検証
+        if (!textBlocks || !Array.isArray(textBlocks)) {
+            console.warn('Invalid textBlocks provided, using empty array');
+            textBlocks = [];
+        }
+
+        // 不正なブロックをフィルタリング
+        const validBlocks = textBlocks.filter(block => 
+            block && 
+            typeof block === 'object' && 
+            typeof block.text === 'string' && 
+            block.text.trim().length > 0
+        );
+
         const result = {
-            date: this.extractDate(textBlocks),
-            amount: this.extractAmount(textBlocks),
-            payee: this.extractPayee(textBlocks),
-            purpose: this.extractPurpose(textBlocks)
+            date: this.extractDate(validBlocks),
+            amount: this.extractAmount(validBlocks),
+            payee: this.extractPayee(validBlocks),
+            purpose: this.extractPurpose(validBlocks)
         };
 
         return result;
@@ -78,21 +92,36 @@ class FieldExtractor {
         const candidates = [];
         const currentYear = new Date().getFullYear();
 
+        if (!Array.isArray(textBlocks)) {
+            return {
+                value: '',
+                confidence: 0,
+                candidates: []
+            };
+        }
+
         for (const block of textBlocks) {
+            if (!block || !block.text) continue;
+            
             const text = block.text;
             
             for (const pattern of this.datePatterns) {
-                const match = text.match(pattern);
-                if (match) {
-                    const normalizedDate = this.normalizeDate(match, currentYear);
-                    if (normalizedDate) {
-                        candidates.push({
-                            value: normalizedDate,
-                            confidence: this.calculateDateConfidence(match, block),
-                            boundingBox: block.boundingBox,
-                            originalText: match[0]
-                        });
+                try {
+                    const match = text.match(pattern);
+                    if (match) {
+                        const normalizedDate = this.normalizeDate(match, currentYear);
+                        if (normalizedDate) {
+                            candidates.push({
+                                value: normalizedDate,
+                                confidence: this.calculateDateConfidence(match, block),
+                                boundingBox: block.boundingBox || null,
+                                originalText: match[0]
+                            });
+                        }
                     }
+                } catch (error) {
+                    console.warn('Date pattern matching error:', error);
+                    continue;
                 }
             }
         }
@@ -276,7 +305,17 @@ class FieldExtractor {
         const candidates = [];
         const seenTexts = new Set(); // 重複除去用
 
+        if (!Array.isArray(textBlocks)) {
+            return {
+                value: 0,
+                confidence: 0,
+                candidates: []
+            };
+        }
+
         for (const block of textBlocks) {
+            if (!block || !block.text) continue;
+            
             const text = block.text;
             
             // 既に処理済みのテキストはスキップ
@@ -284,20 +323,25 @@ class FieldExtractor {
             seenTexts.add(text);
             
             for (const pattern of this.amountPatterns) {
-                const match = text.match(pattern);
-                if (match) {
-                    const amount = this.normalizeAmount(match[1]);
-                    if (amount > 0) {
-                        const confidence = this.calculateAmountConfidence(text, block, textBlocks);
-                        candidates.push({
-                            value: amount,
-                            confidence: confidence,
-                            boundingBox: block.boundingBox,
-                            originalText: match[0],
-                            fullText: text
-                        });
-                        break; // 最初にマッチしたパターンのみ使用
+                try {
+                    const match = text.match(pattern);
+                    if (match) {
+                        const amount = this.normalizeAmount(match[1]);
+                        if (amount > 0) {
+                            const confidence = this.calculateAmountConfidence(text, block, textBlocks);
+                            candidates.push({
+                                value: amount,
+                                confidence: confidence,
+                                boundingBox: block.boundingBox || null,
+                                originalText: match[0],
+                                fullText: text
+                            });
+                            break; // 最初にマッチしたパターンのみ使用
+                        }
                     }
+                } catch (error) {
+                    console.warn('Amount pattern matching error:', error);
+                    continue;
                 }
             }
         }
@@ -379,34 +423,49 @@ class FieldExtractor {
     extractPayee(textBlocks) {
         const candidates = [];
 
+        if (!Array.isArray(textBlocks)) {
+            return {
+                value: '',
+                confidence: 0,
+                candidates: []
+            };
+        }
+
         for (const block of textBlocks) {
+            if (!block || !block.text) continue;
+            
             const text = block.text.trim();
             if (text.length < 2) continue;
 
-            // 企業語尾パターンのチェック
-            for (const pattern of this.companyPatterns) {
-                const match = text.match(pattern);
-                if (match) {
+            try {
+                // 企業語尾パターンのチェック
+                for (const pattern of this.companyPatterns) {
+                    const match = text.match(pattern);
+                    if (match) {
+                        const confidence = this.calculatePayeeConfidence(text, block);
+                        candidates.push({
+                            value: text,
+                            confidence: confidence,
+                            boundingBox: block.boundingBox || null,
+                            originalText: text
+                        });
+                        break;
+                    }
+                }
+
+                // 位置とフォントサイズによる推定
+                if (this.isPotentialPayee(text, block)) {
                     const confidence = this.calculatePayeeConfidence(text, block);
                     candidates.push({
                         value: text,
                         confidence: confidence,
-                        boundingBox: block.boundingBox,
+                        boundingBox: block.boundingBox || null,
                         originalText: text
                     });
-                    break;
                 }
-            }
-
-            // 位置とフォントサイズによる推定
-            if (this.isPotentialPayee(text, block)) {
-                const confidence = this.calculatePayeeConfidence(text, block);
-                candidates.push({
-                    value: text,
-                    confidence: confidence,
-                    boundingBox: block.boundingBox,
-                    originalText: text
-                });
+            } catch (error) {
+                console.warn('Payee pattern matching error:', error);
+                continue;
             }
         }
 
@@ -494,23 +553,40 @@ class FieldExtractor {
      * @returns {Object} 適用フィールドデータ
      */
     extractPurpose(textBlocks) {
-        // 明細行の抽出
-        const itemLines = this.extractItemLines(textBlocks);
-        
-        // 名詞句の抽出
-        const nouns = this.extractNouns(itemLines);
-        
-        // TF-IDFスコアによる重要語句選択
-        const importantTerms = this.selectImportantTerms(nouns);
-        
-        // 要約生成
-        const summary = this.generateSummary(importantTerms);
-        
-        return {
-            value: summary,
-            confidence: summary ? 0.7 : 0,
-            candidates: [{ value: summary, confidence: 0.7, originalText: itemLines.join(' ') }]
-        };
+        if (!Array.isArray(textBlocks)) {
+            return {
+                value: '',
+                confidence: 0,
+                candidates: []
+            };
+        }
+
+        try {
+            // 明細行の抽出
+            const itemLines = this.extractItemLines(textBlocks);
+            
+            // 名詞句の抽出
+            const nouns = this.extractNouns(itemLines);
+            
+            // TF-IDFスコアによる重要語句選択
+            const importantTerms = this.selectImportantTerms(nouns);
+            
+            // 要約生成
+            const summary = this.generateSummary(importantTerms);
+            
+            return {
+                value: summary,
+                confidence: summary ? 0.7 : 0,
+                candidates: summary ? [{ value: summary, confidence: 0.7, originalText: itemLines.join(' ') }] : []
+            };
+        } catch (error) {
+            console.warn('Purpose extraction error:', error);
+            return {
+                value: '',
+                confidence: 0,
+                candidates: []
+            };
+        }
     }
 
     /**
@@ -521,7 +597,13 @@ class FieldExtractor {
     extractItemLines(textBlocks) {
         const itemLines = [];
         
+        if (!Array.isArray(textBlocks)) {
+            return itemLines;
+        }
+        
         for (const block of textBlocks) {
+            if (!block || !block.text) continue;
+            
             const text = block.text.trim();
             
             // 金額や日付は除外
@@ -659,7 +741,11 @@ class FieldExtractor {
      * @returns {number} 距離
      */
     calculateDistance(box1, box2) {
-        if (!box1 || !box2) return Infinity;
+        if (!box1 || !box2 || 
+            typeof box1.x !== 'number' || typeof box1.y !== 'number' ||
+            typeof box2.x !== 'number' || typeof box2.y !== 'number') {
+            return Infinity;
+        }
         
         const dx = Math.abs(box1.x - box2.x);
         const dy = Math.abs(box1.y - box2.y);
