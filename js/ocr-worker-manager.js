@@ -44,18 +44,25 @@ class OCRWorkerManager {
      * @private
      */
     async _performInitialization(ocrConfig) {
+        const startTime = Date.now();
+        
         try {
             console.log('OCR Worker Managerを初期化中...');
             
             // Web Workerの作成
+            console.log('Web Workerを作成中...');
             this.worker = new Worker(this.config.workerPath);
             
             // メッセージハンドラーの設定
             this.worker.onmessage = (e) => this._handleWorkerMessage(e);
             this.worker.onerror = (error) => this._handleWorkerError(error);
             
-            // OCRエンジンの初期化
+            console.log('OCRエンジンの初期化メッセージを送信中...');
+            
+            // OCRエンジンの初期化（タイムアウト付き）
             const initResult = await this._sendMessage('INIT', ocrConfig);
+            
+            console.log('OCRエンジン初期化結果:', initResult);
             
             this.isInitialized = true;
             this.workerStatus = {
@@ -243,10 +250,16 @@ class OCRWorkerManager {
      * 初期化状態の取得
      */
     getInitializationStatus() {
-        return {
+        const status = {
             ...this.workerStatus,
-            isInitialized: this.isInitialized
+            isInitialized: this.isInitialized,
+            hasWorker: !!this.worker,
+            pendingMessages: this.pendingMessages.size,
+            initializationPromise: !!this.initializationPromise
         };
+        
+        console.log('Worker初期化状態:', status);
+        return status;
     }
 
     /**

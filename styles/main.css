@@ -967,6 +967,36 @@ body {
     text-align: left;
 }
 
+.progress-actions {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.progress-cancel-button {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s ease;
+}
+
+.progress-cancel-button:hover {
+    background: #dc2626;
+}
+
+.progress-cancel-button:focus {
+    outline: 2px solid #ef4444;
+    outline-offset: 2px;
+}
+
 .progress-steps {
     list-style: none;
     padding: 0;

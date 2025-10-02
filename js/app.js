@@ -49,10 +49,54 @@ class ReceiptOCRApp {
         this.checkCameraSupport();
         this.initializeOCREngine();
         this.initializeStorageAndExport();
+        this.initializeProgressCancelButton();
         this.updateStatus('準備完了');
         
         // ページアンロード時のクリーンアップ
         window.addEventListener('beforeunload', this.cleanup.bind(this));
+    }
+
+    /**
+     * プログレス停止ボタンの初期化
+     */
+    initializeProgressCancelButton() {
+        const cancelButton = document.getElementById('progress-cancel');
+        if (cancelButton) {
+            cancelButton.addEventListener('click', () => {
+                this.cancelCurrentOperation();
+            });
+        }
+    }
+
+    /**
+     * 現在の処理をキャンセル
+     */
+    async cancelCurrentOperation() {
+        console.log('処理のキャンセルが要求されました');
+        
+        try {
+            // OCR Worker Managerの処理を停止
+            if (this.ocrWorkerManager) {
+                await this.ocrWorkerManager.dispose();
+                this.ocrWorkerManager = null;
+            }
+            
+            // プログレス表示を非表示
+            this.hideProgress();
+            
+            // ステータスを更新
+            this.updateStatus('処理がキャンセルされました', 'warning');
+            
+            // OCRエンジンを再初期化
+            setTimeout(() => {
+                this.initializeOCREngine();
+            }, 1000);
+            
+        } catch (error) {
+            console.error('処理キャンセル中にエラーが発生:', error);
+            this.hideProgress();
+            this.updateStatus('処理を強制終了しました', 'error');
+        }
     }
 
     /**
@@ -723,48 +767,127 @@ class ReceiptOCRApp {
      * 実際のOCR処理の実行
      */
     async performActualOCRProcessing() {
+        console.log('OCR処理開始');
+        
+        // 全体的なタイムアウト設定（60秒）
+        const overallTimeout = 60000;
+        const startTime = Date.now();
+        
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+                reject(new Error('OCR処理がタイムアウトしました（60秒）'));
+            }, overallTimeout);
+        });
+        
+        try {
+            return await Promise.race([
+                this._performOCRWithSteps(),
+                timeoutPromise
+            ]);
+        } catch (error) {
+            const elapsedTime = Date.now() - startTime;
+            console.error(`OCR処理エラー (経過時間: ${elapsedTime}ms):`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * OCR処理のステップ実行
+     * @private
+     */
+    async _performOCRWithSteps() {
         // OCR Worker Managerの初期化確認
         if (!this.ocrWorkerManager) {
+            console.log('OCR Worker Managerを作成中...');
             throw new Error('OCR Worker Managerが初期化されていません');
         }
 
         // Worker Managerの初期化状態を確認
+        console.log('Worker Manager初期化状態を確認中...');
         const workerStatus = this.ocrWorkerManager.getInitializationStatus();
-        if (!workerStatus.isInitialized) {
+        console.log('Worker Status:', workerStatus);
+        
+        if (!workerStatus.initialized) {
             this.showProgress('OCR Worker Managerを初期化中...', 5);
-            await this.ocrWorkerManager.initialize({
+            console.log('Worker Manager初期化開始...');
+            
+            // 初期化タイムアウト（30秒）
+            const initTimeout = 30000;
+            const initPromise = this.ocrWorkerManager.initialize({
                 modelsPath: './models/',
                 backends: ['webgpu', 'webgl', 'wasm'],
                 fallbackToTesseract: true
             });
+            
+            const initTimeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error('OCR Worker Manager初期化がタイムアウトしました（30秒）'));
+                }, initTimeout);
+            });
+            
+            await Promise.race([initPromise, initTimeoutPromise]);
+            console.log('Worker Manager初期化完了');
         }
 
+        // 更新された状態を取得
+        const updatedStatus = this.ocrWorkerManager.getInitializationStatus();
+        console.log('Updated Worker Status:', updatedStatus);
+
         // モデルの読み込み状態を確認（フォールバック使用時はスキップ）
-        if (!workerStatus.usingFallback && !workerStatus.modelsLoaded) {
+        if (!updatedStatus.usingFallback && !updatedStatus.modelsLoaded) {
             this.showProgress('モデルを読み込み中...', 10);
-            await this.ocrWorkerManager.loadModels((message, progress) => {
+            console.log('モデル読み込み開始...');
+            
+            // モデル読み込みタイムアウト（45秒）
+            const modelTimeout = 45000;
+            const modelPromise = this.ocrWorkerManager.loadModels((message, progress) => {
+                console.log(`モデル読み込み進行状況: ${message} (${progress}%)`);
                 this.showProgress(message, Math.min(progress * 0.3, 30)); // 30%まで
             });
+            
+            const modelTimeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error('モデル読み込みがタイムアウトしました（45秒）'));
+                }, modelTimeout);
+            });
+            
+            await Promise.race([modelPromise, modelTimeoutPromise]);
+            console.log('モデル読み込み完了');
         }
 
         // 画像データの準備
         this.showProgress('画像を前処理中...', 35);
+        console.log('画像データ準備開始...');
         const imageData = await this.prepareImageDataForOCR();
+        console.log('画像データ準備完了');
 
         // OCR処理の実行（Web Workerで非同期実行）
         this.showProgress('OCR処理を実行中...', 40);
+        console.log('OCR処理実行開始...');
         
         const progressCallback = (message, progress) => {
+            console.log(`OCR進行状況: ${message} (${progress}%)`);
             // 40%から90%の範囲で進行状況を表示
             const adjustedProgress = 40 + (progress * 0.5);
             this.showProgress(message, adjustedProgress);
         };
 
-        const ocrResult = await this.ocrWorkerManager.processImage(imageData, {
+        // OCR処理タイムアウト（30秒）
+        const ocrTimeout = 30000;
+        const ocrPromise = this.ocrWorkerManager.processImage(imageData, {
             progressCallback,
             detectionThreshold: 0.5,
             nmsThreshold: 0.3
         });
+        
+        const ocrTimeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+                reject(new Error('OCR処理がタイムアウトしました（30秒）'));
+            }, ocrTimeout);
+        });
+
+        const ocrResult = await Promise.race([ocrPromise, ocrTimeoutPromise]);
+        console.log('OCR処理実行完了:', ocrResult);
 
         this.showProgress('OCR処理完了', 90);
         
@@ -1792,6 +1915,12 @@ class ReceiptOCRApp {
      * プログレス表示
      */
     showProgress(text, progress, options = {}) {
+        // 既存のタイムアウトをクリア
+        if (this.progressTimeout) {
+            clearTimeout(this.progressTimeout);
+            this.progressTimeout = null;
+        }
+        
         this.elements.progressOverlay.style.display = 'flex';
         this.elements.progressText.textContent = text;
         this.elements.progressFill.style.width = `${Math.max(0, Math.min(100, progress))}%`;
@@ -1814,9 +1943,16 @@ class ReceiptOCRApp {
         
         // 自動非表示タイマー
         if (options.autoHide && options.autoHide > 0) {
-            setTimeout(() => {
+            this.progressTimeout = setTimeout(() => {
                 this.hideProgress();
             }, options.autoHide);
+        } else {
+            // デフォルトで2分後に自動非表示（無限ループ対策）
+            this.progressTimeout = setTimeout(() => {
+                console.warn('プログレス表示が2分間継続したため自動的に非表示にします');
+                this.hideProgress();
+                this.updateStatus('処理がタイムアウトしました', 'error');
+            }, 120000); // 2分
         }
     }
 
@@ -1903,6 +2039,12 @@ class ReceiptOCRApp {
      * プログレス非表示
      */
     hideProgress() {
+        // タイムアウトをクリア
+        if (this.progressTimeout) {
+            clearTimeout(this.progressTimeout);
+            this.progressTimeout = null;
+        }
+        
         this.elements.progressOverlay.style.display = 'none';
         
         // 詳細情報をクリア
