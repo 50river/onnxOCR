@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ブラウザ互換性テスト - 領収書OCRアプリ</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+        }
+
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .browser-info {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .browser-info h3 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .browser-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .browser-badge.safari { background: #007AFF; color: white; }
+        .browser-badge.chrome { background: #4285F4; color: white; }
+        .browser-badge.unknown { background: #666; color: white; }
+
+        .os-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            background: #28a745;
+            color: white;
+            font-weight: bold;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #0056CC;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.secondary {
+            background: #6c757d;
+        }
+
+        .btn.secondary:hover {
+            background: #545b62;
+        }
+
+        .progress {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .results {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .summary-card.total { background: #6c757d; }
+        .summary-card.passed { background: #28a745; }
+        .summary-card.failed { background: #dc3545; }
+        .summary-card.errors { background: #fd7e14; }
+
+        .summary-card .number {
+            font-size: 2em;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .compatibility-status {
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .compatibility-status.compatible {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .compatibility-status.incompatible {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .category-results {
+            margin-bottom: 30px;
+        }
+
+        .category-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .test-list {
+            background: white;
+            border-radius: 0 0 8px 8px;
+            overflow: hidden;
+        }
+
+        .test-item {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .test-item:last-child {
+            border-bottom: none;
+        }
+
+        .test-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .test-status {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .test-status.pass {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .test-status.fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .test-status.error {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .test-message {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .recommendations {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .recommendations h4 {
+            margin-top: 0;
+            color: #856404;
+        }
+
+        .recommendations ul {
+            margin-bottom: 0;
+        }
+
+        .recommendations li {
+            margin-bottom: 10px;
+            color: #856404;
+        }
+
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .console-output pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .btn {
+                padding: 12px 20px;
+                font-size: 14px;
+                margin: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧪 ブラウザ互換性テスト</h1>
+        <p>iOS Safari 16+ / Android Chrome 10+ 対応確認</p>
+    </div>
+
+    <div class="browser-info">
+        <h3>🔍 検出されたブラウザ情報</h3>
+        <div id="browser-details">
+            <span id="browser-badge" class="browser-badge unknown">検出中...</span>
+            <span id="os-badge" class="os-badge">検出中...</span>
+        </div>
+        <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+            User Agent: <span id="user-agent"></span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="run-tests" class="btn">🚀 互換性テストを実行</button>
+        <button id="clear-results" class="btn secondary" disabled>🗑️ 結果をクリア</button>
+    </div>
+
+    <div id="progress" class="progress">
+        <h3>⏳ テスト実行中...</h3>
+        <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <div id="progress-text">準備中...</div>
+    </div>
+
+    <div id="results" class="results">
+        <div id="compatibility-status" class="compatibility-status">
+            <!-- 互換性ステータスがここに表示されます -->
+        </div>
+
+        <div class="summary">
+            <div class="summary-card total">
+                <span id="total-tests" class="number">0</span>
+                <span>総テスト数</span>
+            </div>
+            <div class="summary-card passed">
+                <span id="passed-tests" class="number">0</span>
+                <span>成功</span>
+            </div>
+            <div class="summary-card failed">
+                <span id="failed-tests" class="number">0</span>
+                <span>失敗</span>
+            </div>
+            <div class="summary-card errors">
+                <span id="error-tests" class="number">0</span>
+                <span>エラー</span>
+            </div>
+        </div>
+
+        <div id="category-results">
+            <!-- カテゴリ別結果がここに表示されます -->
+        </div>
+
+        <div id="recommendations" class="recommendations" style="display: none;">
+            <h4>💡 推奨事項</h4>
+            <ul id="recommendations-list">
+                <!-- 推奨事項がここに表示されます -->
+            </ul>
+        </div>
+    </div>
+
+    <div id="console-output" class="console-output" style="display: none;">
+        <h4 style="color: #d4d4d4; margin-top: 0;">📋 コンソール出力</h4>
+        <pre id="console-content"></pre>
+    </div>
+
+    <script src="browser-compatibility-tests.js"></script>
+    <script>
+        let compatibilityTests;
+        let consoleOutput = [];
+
+        // コンソール出力をキャプチャ
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        console.log = function(...args) {
+            consoleOutput.push(`[LOG] ${args.join(' ')}`);
+            updateConsoleOutput();
+            originalConsoleLog.apply(console, args);
+        };
+
+        console.error = function(...args) {
+            consoleOutput.push(`[ERROR] ${args.join(' ')}`);
+            updateConsoleOutput();
+            originalConsoleError.apply(console, args);
+        };
+
+        console.warn = function(...args) {
+            consoleOutput.push(`[WARN] ${args.join(' ')}`);
+            updateConsoleOutput();
+            originalConsoleWarn.apply(console, args);
+        };
+
+        function updateConsoleOutput() {
+            const consoleElement = document.getElementById('console-content');
+            const consoleContainer = document.getElementById('console-output');
+            
+            if (consoleOutput.length > 0) {
+                consoleElement.textContent = consoleOutput.join('\n');
+                consoleContainer.style.display = 'block';
+                consoleElement.scrollTop = consoleElement.scrollHeight;
+            }
+        }
+
+        // ページ読み込み時の初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            compatibilityTests = new BrowserCompatibilityTests();
+            updateBrowserInfo();
+
+            // URLパラメータで自動実行をチェック
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('run-compatibility-tests')) {
+                setTimeout(runTests, 1000);
+            }
+        });
+
+        function updateBrowserInfo() {
+            const browserInfo = compatibilityTests.browserInfo;
+            const userAgent = compatibilityTests.userAgent;
+
+            // ブラウザバッジの更新
+            const browserBadge = document.getElementById('browser-badge');
+            browserBadge.textContent = `${browserInfo.browser} ${browserInfo.version}`;
+            browserBadge.className = `browser-badge ${browserInfo.browser.toLowerCase()}`;
+
+            // OSバッジの更新
+            const osBadge = document.getElementById('os-badge');
+            osBadge.textContent = browserInfo.os;
+
+            // User Agentの表示
+            document.getElementById('user-agent').textContent = userAgent;
+        }
+
+        async function runTests() {
+            const runButton = document.getElementById('run-tests');
+            const clearButton = document.getElementById('clear-results');
+            const progressDiv = document.getElementById('progress');
+            const resultsDiv = document.getElementById('results');
+
+            // UIの状態を更新
+            runButton.disabled = true;
+            runButton.textContent = '⏳ テスト実行中...';
+            clearButton.disabled = true;
+            progressDiv.style.display = 'block';
+            resultsDiv.style.display = 'none';
+            consoleOutput = [];
+
+            try {
+                // プログレス更新のシミュレーション
+                const progressSteps = [
+                    { text: 'Web API互換性をテスト中...', progress: 20 },
+                    { text: 'PWA機能をテスト中...', progress: 40 },
+                    { text: 'OCR機能をテスト中...', progress: 60 },
+                    { text: 'パフォーマンス機能をテスト中...', progress: 80 },
+                    { text: 'ブラウザ固有の問題をテスト中...', progress: 100 }
+                ];
+
+                for (const step of progressSteps) {
+                    updateProgress(step.text, step.progress);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+
+                // 実際のテスト実行
+                const report = await compatibilityTests.runAllTests();
+                
+                // 結果の表示
+                displayResults(report);
+
+            } catch (error) {
+                console.error('テスト実行中にエラーが発生しました:', error);
+                alert(`テスト実行中にエラーが発生しました: ${error.message}`);
+            } finally {
+                // UIの状態をリセット
+                runButton.disabled = false;
+                runButton.textContent = '🚀 互換性テストを実行';
+                clearButton.disabled = false;
+                progressDiv.style.display = 'none';
+            }
+        }
+
+        function updateProgress(text, progress) {
+            document.getElementById('progress-text').textContent = text;
+            document.getElementById('progress-fill').style.width = `${progress}%`;
+        }
+
+        function displayResults(report) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+
+            // サマリーの更新
+            document.getElementById('total-tests').textContent = report.summary.total;
+            document.getElementById('passed-tests').textContent = report.summary.passed;
+            document.getElementById('failed-tests').textContent = report.summary.failed;
+            document.getElementById('error-tests').textContent = report.summary.errors;
+
+            // 互換性ステータスの更新
+            const statusDiv = document.getElementById('compatibility-status');
+            if (report.compatible) {
+                statusDiv.className = 'compatibility-status compatible';
+                statusDiv.innerHTML = '✅ このブラウザは互換性があります';
+            } else {
+                statusDiv.className = 'compatibility-status incompatible';
+                statusDiv.innerHTML = '⚠️ このブラウザには互換性の問題があります';
+            }
+
+            // カテゴリ別結果の表示
+            displayCategoryResults(report);
+
+            // 推奨事項の表示
+            if (report.recommendations && report.recommendations.length > 0) {
+                displayRecommendations(report.recommendations);
+            }
+
+            console.log('📊 テスト結果サマリー');
+            console.log(`合格: ${report.summary.passed}/${report.summary.total}`);
+            console.log(`成功率: ${(report.summary.passed / report.summary.total * 100).toFixed(1)}%`);
+            
+            if (report.compatible) {
+                console.log('🎉 ブラウザ互換性テストに合格しました！');
+            } else {
+                console.log('⚠️ ブラウザ互換性に問題があります。推奨事項を確認してください。');
+            }
+        }
+
+        function displayCategoryResults(report) {
+            const categoryResultsDiv = document.getElementById('category-results');
+            categoryResultsDiv.innerHTML = '';
+
+            Object.keys(report.categories).forEach(category => {
+                const categoryData = report.categories[category];
+                const categoryResults = report.results.filter(r => r.category === category);
+
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'category-results';
+
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'category-header';
+                headerDiv.innerHTML = `
+                    ${category} 
+                    <span style="float: right;">
+                        ${categoryData.passed}/${categoryData.total} 成功
+                    </span>
+                `;
+
+                const testListDiv = document.createElement('div');
+                testListDiv.className = 'test-list';
+
+                categoryResults.forEach(result => {
+                    const testItemDiv = document.createElement('div');
+                    testItemDiv.className = 'test-item';
+
+                    const statusClass = result.status.toLowerCase() === 'pass' ? 'pass' : 
+                                       result.status.toLowerCase() === 'fail' ? 'fail' : 'error';
+
+                    testItemDiv.innerHTML = `
+                        <div>
+                            <div class="test-name">${result.test}</div>
+                            <div class="test-message">${result.message}</div>
+                        </div>
+                        <div class="test-status ${statusClass}">${result.status}</div>
+                    `;
+
+                    testListDiv.appendChild(testItemDiv);
+                });
+
+                categoryDiv.appendChild(headerDiv);
+                categoryDiv.appendChild(testListDiv);
+                categoryResultsDiv.appendChild(categoryDiv);
+            });
+        }
+
+        function displayRecommendations(recommendations) {
+            const recommendationsDiv = document.getElementById('recommendations');
+            const recommendationsList = document.getElementById('recommendations-list');
+            
+            recommendationsList.innerHTML = '';
+            recommendations.forEach(recommendation => {
+                const li = document.createElement('li');
+                li.textContent = recommendation;
+                recommendationsList.appendChild(li);
+            });
+
+            recommendationsDiv.style.display = 'block';
+        }
+
+        function clearResults() {
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('console-output').style.display = 'none';
+            consoleOutput = [];
+            
+            // サマリーをリセット
+            document.getElementById('total-tests').textContent = '0';
+            document.getElementById('passed-tests').textContent = '0';
+            document.getElementById('failed-tests').textContent = '0';
+            document.getElementById('error-tests').textContent = '0';
+            
+            document.getElementById('clear-results').disabled = true;
+        }
+
+        // イベントリスナーの設定
+        document.getElementById('run-tests').addEventListener('click', runTests);
+        document.getElementById('clear-results').addEventListener('click', clearResults);
+    </script>
+</body>
+</html>

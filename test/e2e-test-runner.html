@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E2Eテストランナー - 領収書OCRアプリ</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+        }
+        
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .test-section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .test-section h2 {
+            color: #333;
+            margin-top: 0;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .requirements-list {
+            background: #f8f9ff;
+            border-left: 4px solid #667eea;
+            padding: 15px 20px;
+            margin: 15px 0;
+        }
+        
+        .requirements-list h3 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        
+        .requirements-list ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .requirements-list li {
+            margin: 8px 0;
+            color: #555;
+        }
+        
+        .control-panel {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+        
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #38a169;
+        }
+        
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #dd6b20;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-ready { background: #48bb78; }
+        .status-running { background: #ed8936; animation: pulse 1.5s infinite; }
+        .status-error { background: #f56565; }
+        .status-unknown { background: #a0aec0; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .results-container {
+            margin-top: 20px;
+        }
+        
+        .test-result {
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        
+        .test-result.pass {
+            background: #f0fff4;
+            border-color: #48bb78;
+            color: #22543d;
+        }
+        
+        .test-result.fail {
+            background: #fff5f5;
+            border-color: #f56565;
+            color: #742a2a;
+        }
+        
+        .test-result.info {
+            background: #ebf8ff;
+            border-color: #4299e1;
+            color: #2a4365;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .console-output {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 20px 0;
+        }
+        
+        .warning-box {
+            background: #fffbeb;
+            border: 1px solid #f6e05e;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .warning-box h4 {
+            color: #d69e2e;
+            margin-top: 0;
+        }
+        
+        .offline-test-info {
+            background: #e6fffa;
+            border: 1px solid #38b2ac;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .offline-test-info h4 {
+            color: #2c7a7b;
+            margin-top: 0;
+        }
+        
+        .test-category {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+        
+        .test-category h3 {
+            margin-top: 0;
+            color: #4a5568;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧪 E2Eテストランナー</h1>
+        <p>領収書OCRアプリのエンドツーエンドテスト実行環境</p>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 テスト概要</h2>
+        <p>このE2Eテストは、領収書OCRアプリの完全なワークフローを実際の使用シナリオに近い形でテストします。</p>
+        
+        <div class="requirements-list">
+            <h3>📝 テスト要件</h3>
+            <ul>
+                <li><strong>要件2.2:</strong> 4項目抽出の精度確認（2項目以上でconfidence≥0.8）</li>
+                <li><strong>要件3.2:</strong> 矩形選択による再OCRのテスト</li>
+                <li><strong>要件6.2:</strong> オフライン動作の確認</li>
+            </ul>
+        </div>
+
+        <div class="warning-box">
+            <h4>⚠️ 重要な注意事項</h4>
+            <ul>
+                <li>E2Eテストは実際のOCRエンジンとモデルファイルが必要です</li>
+                <li>初回実行時はモデルのダウンロードに時間がかかる場合があります</li>
+                <li>オフラインテストを完全に実行するには、ブラウザの開発者ツールでネットワークを無効にしてください</li>
+            </ul>
+        </div>
+
+        <div class="offline-test-info">
+            <h4>🌐 オフラインテストの実行方法</h4>
+            <ol>
+                <li>ブラウザの開発者ツール（F12）を開く</li>
+                <li>「Network」タブを選択</li>
+                <li>「Offline」チェックボックスをオンにする</li>
+                <li>「オフライン動作テスト」ボタンをクリック</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎮 テスト制御</h2>
+        
+        <div class="control-panel">
+            <button id="runAllTests" class="btn btn-primary">
+                🚀 全E2Eテスト実行
+            </button>
+            <button id="runFieldExtractionTests" class="btn btn-secondary">
+                📊 4項目抽出テスト
+            </button>
+            <button id="runRectangleSelectionTests" class="btn btn-secondary">
+                🔲 矩形選択テスト
+            </button>
+            <button id="runOfflineTests" class="btn btn-secondary">
+                🌐 オフライン動作テスト
+            </button>
+            <button id="runWorkflowTests" class="btn btn-secondary">
+                🔄 完全ワークフローテスト
+            </button>
+            <button id="clearResults" class="btn btn-warning">
+                🗑️ 結果クリア
+            </button>
+        </div>
+
+        <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+        </div>
+        
+        <div id="testStatus" class="test-result info">
+            <span class="status-indicator status-ready"></span>
+            テスト準備完了 - 実行するテストを選択してください
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 テスト結果</h2>
+        
+        <div id="summaryStats" class="summary-stats hidden">
+            <div class="stat-card">
+                <div id="totalTests" class="stat-number">0</div>
+                <div class="stat-label">総テスト数</div>
+            </div>
+            <div class="stat-card">
+                <div id="passedTests" class="stat-number">0</div>
+                <div class="stat-label">合格</div>
+            </div>
+            <div class="stat-card">
+                <div id="failedTests" class="stat-number">0</div>
+                <div class="stat-label">失敗</div>
+            </div>
+            <div class="stat-card">
+                <div id="successRate" class="stat-number">0%</div>
+                <div class="stat-label">成功率</div>
+            </div>
+        </div>
+
+        <div class="test-category">
+            <h3>📈 4項目抽出精度テスト結果</h3>
+            <div id="fieldExtractionResults" class="results-container"></div>
+        </div>
+
+        <div class="test-category">
+            <h3>🔲 矩形選択・再OCRテスト結果</h3>
+            <div id="rectangleSelectionResults" class="results-container"></div>
+        </div>
+
+        <div class="test-category">
+            <h3>🌐 オフライン動作テスト結果</h3>
+            <div id="offlineTestResults" class="results-container"></div>
+        </div>
+
+        <div class="test-category">
+            <h3>🔄 完全ワークフローテスト結果</h3>
+            <div id="workflowTestResults" class="results-container"></div>
+        </div>
+
+        <div class="test-category">
+            <h3>🖥️ コンソール出力</h3>
+            <div id="consoleOutput" class="console-output"></div>
+        </div>
+    </div>
+
+    <!-- 必要なスクリプトファイルの読み込み -->
+    <script src="../js/ocr-engine.js"></script>
+    <script src="../js/field-extractor.js"></script>
+    <script src="../js/rectangle-selector.js"></script>
+    <script src="../js/storage-manager.js"></script>
+    <script src="../js/ocr-worker-manager.js"></script>
+    <script src="e2e-tests.js"></script>
+
+    <script>
+        class E2ETestRunner {
+            constructor() {
+                this.e2eTests = null;
+                this.isRunning = false;
+                this.currentTestCategory = '';
+                this.testResults = [];
+                
+                this.initializeUI();
+                this.setupEventListeners();
+                this.interceptConsole();
+            }
+
+            initializeUI() {
+                // 初期状態の設定
+                this.updateStatus('ready', 'テスト準備完了');
+                this.updateProgress(0);
+            }
+
+            setupEventListeners() {
+                document.getElementById('runAllTests').addEventListener('click', () => {
+                    this.runAllTests();
+                });
+
+                document.getElementById('runFieldExtractionTests').addEventListener('click', () => {
+                    this.runFieldExtractionTests();
+                });
+
+                document.getElementById('runRectangleSelectionTests').addEventListener('click', () => {
+                    this.runRectangleSelectionTests();
+                });
+
+                document.getElementById('runOfflineTests').addEventListener('click', () => {
+                    this.runOfflineTests();
+                });
+
+                document.getElementById('runWorkflowTests').addEventListener('click', () => {
+                    this.runWorkflowTests();
+                });
+
+                document.getElementById('clearResults').addEventListener('click', () => {
+                    this.clearResults();
+                });
+            }
+
+            interceptConsole() {
+                const originalLog = console.log;
+                const originalError = console.error;
+                const consoleOutput = document.getElementById('consoleOutput');
+
+                console.log = (...args) => {
+                    originalLog.apply(console, args);
+                    const message = args.join(' ');
+                    consoleOutput.textContent += message + '\n';
+                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                };
+
+                console.error = (...args) => {
+                    originalError.apply(console, args);
+                    const message = 'ERROR: ' + args.join(' ');
+                    consoleOutput.textContent += message + '\n';
+                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                };
+            }
+
+            async runAllTests() {
+                if (this.isRunning) return;
+
+                try {
+                    this.isRunning = true;
+                    this.updateStatus('running', '全E2Eテストを実行中...');
+                    this.clearResults();
+
+                    this.e2eTests = new E2ETests();
+                    
+                    // テスト結果を監視するためのフック
+                    this.hookTestResults();
+                    
+                    await this.e2eTests.runAllTests();
+                    
+                    this.updateStatus('ready', '全E2Eテスト完了');
+                    this.updateProgress(100);
+                    
+                } catch (error) {
+                    console.error('E2Eテスト実行エラー:', error);
+                    this.updateStatus('error', `テスト実行エラー: ${error.message}`);
+                } finally {
+                    this.isRunning = false;
+                }
+            }
+
+            async runFieldExtractionTests() {
+                if (this.isRunning) return;
+
+                try {
+                    this.isRunning = true;
+                    this.currentTestCategory = 'fieldExtraction';
+                    this.updateStatus('running', '4項目抽出精度テストを実行中...');
+
+                    this.e2eTests = new E2ETests();
+                    this.hookTestResults();
+                    
+                    await this.e2eTests.setupE2EEnvironment();
+                    await this.e2eTests.prepareRealReceiptImages();
+                    await this.e2eTests.testFieldExtractionAccuracy();
+                    
+                    this.updateStatus('ready', '4項目抽出精度テスト完了');
+                    
+                } catch (error) {
+                    console.error('4項目抽出テストエラー:', error);
+                    this.updateStatus('error', `テスト実行エラー: ${error.message}`);
+                } finally {
+                    this.isRunning = false;
+                }
+            }
+
+            async runRectangleSelectionTests() {
+                if (this.isRunning) return;
+
+                try {
+                    this.isRunning = true;
+                    this.currentTestCategory = 'rectangleSelection';
+                    this.updateStatus('running', '矩形選択・再OCRテストを実行中...');
+
+                    this.e2eTests = new E2ETests();
+                    this.hookTestResults();
+                    
+                    await this.e2eTests.setupE2EEnvironment();
+                    await this.e2eTests.prepareRealReceiptImages();
+                    await this.e2eTests.testRectangleSelectionReOCR();
+                    
+                    this.updateStatus('ready', '矩形選択・再OCRテスト完了');
+                    
+                } catch (error) {
+                    console.error('矩形選択テストエラー:', error);
+                    this.updateStatus('error', `テスト実行エラー: ${error.message}`);
+                } finally {
+                    this.isRunning = false;
+                }
+            }
+
+            async runOfflineTests() {
+                if (this.isRunning) return;
+
+                try {
+                    this.isRunning = true;
+                    this.currentTestCategory = 'offline';
+                    this.updateStatus('running', 'オフライン動作テストを実行中...');
+
+                    // オフライン状態の確認
+                    if (navigator.onLine) {
+                        console.log('⚠️ 現在オンライン状態です。完全なオフラインテストのためには、ブラウザの開発者ツールでネットワークを無効にしてください。');
+                    }
+
+                    this.e2eTests = new E2ETests();
+                    this.hookTestResults();
+                    
+                    await this.e2eTests.setupE2EEnvironment();
+                    await this.e2eTests.testOfflineOperation();
+                    
+                    this.updateStatus('ready', 'オフライン動作テスト完了');
+                    
+                } catch (error) {
+                    console.error('オフラインテストエラー:', error);
+                    this.updateStatus('error', `テスト実行エラー: ${error.message}`);
+                } finally {
+                    this.isRunning = false;
+                }
+            }
+
+            async runWorkflowTests() {
+                if (this.isRunning) return;
+
+                try {
+                    this.isRunning = true;
+                    this.currentTestCategory = 'workflow';
+                    this.updateStatus('running', '完全ワークフローテストを実行中...');
+
+                    this.e2eTests = new E2ETests();
+                    this.hookTestResults();
+                    
+                    await this.e2eTests.setupE2EEnvironment();
+                    await this.e2eTests.prepareRealReceiptImages();
+                    await this.e2eTests.testCompleteWorkflow();
+                    
+                    this.updateStatus('ready', '完全ワークフローテスト完了');
+                    
+                } catch (error) {
+                    console.error('ワークフローテストエラー:', error);
+                    this.updateStatus('error', `テスト実行エラー: ${error.message}`);
+                } finally {
+                    this.isRunning = false;
+                }
+            }
+
+            hookTestResults() {
+                if (!this.e2eTests) return;
+
+                // テスト結果を監視するために元のaddTestResultメソッドをフック
+                const originalAddTestResult = this.e2eTests.addTestResult.bind(this.e2eTests);
+                this.e2eTests.addTestResult = (testName, passed, message) => {
+                    originalAddTestResult(testName, passed, message);
+                    this.displayTestResult(testName, passed, message);
+                    this.updateSummaryStats();
+                };
+            }
+
+            displayTestResult(testName, passed, message) {
+                const resultElement = document.createElement('div');
+                resultElement.className = `test-result ${passed ? 'pass' : 'fail'}`;
+                resultElement.innerHTML = `
+                    <strong>${passed ? '✅' : '❌'} ${testName}</strong>
+                    ${message ? `<br><span style="margin-left: 20px;">${message}</span>` : ''}
+                `;
+
+                // カテゴリ別に結果を表示
+                let targetContainer;
+                if (testName.includes('項目抽出') || testName.includes('フィールド')) {
+                    targetContainer = document.getElementById('fieldExtractionResults');
+                } else if (testName.includes('矩形選択') || testName.includes('再OCR') || testName.includes('ズーム')) {
+                    targetContainer = document.getElementById('rectangleSelectionResults');
+                } else if (testName.includes('オフライン') || testName.includes('Service Worker') || testName.includes('キャッシュ')) {
+                    targetContainer = document.getElementById('offlineTestResults');
+                } else if (testName.includes('ワークフロー') || testName.includes('完全')) {
+                    targetContainer = document.getElementById('workflowTestResults');
+                } else {
+                    // デフォルトは最初のコンテナ
+                    targetContainer = document.getElementById('fieldExtractionResults');
+                }
+
+                if (targetContainer) {
+                    targetContainer.appendChild(resultElement);
+                }
+
+                this.testResults.push({ testName, passed, message });
+            }
+
+            updateSummaryStats() {
+                const totalTests = this.testResults.length;
+                const passedTests = this.testResults.filter(r => r.passed).length;
+                const failedTests = totalTests - passedTests;
+                const successRate = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
+
+                document.getElementById('totalTests').textContent = totalTests;
+                document.getElementById('passedTests').textContent = passedTests;
+                document.getElementById('failedTests').textContent = failedTests;
+                document.getElementById('successRate').textContent = successRate + '%';
+
+                // 統計を表示
+                document.getElementById('summaryStats').classList.remove('hidden');
+
+                // 成功率に応じて色を変更
+                const successRateElement = document.getElementById('successRate');
+                if (successRate >= 80) {
+                    successRateElement.style.color = '#48bb78';
+                } else if (successRate >= 60) {
+                    successRateElement.style.color = '#ed8936';
+                } else {
+                    successRateElement.style.color = '#f56565';
+                }
+            }
+
+            updateStatus(status, message) {
+                const statusElement = document.getElementById('testStatus');
+                const indicator = statusElement.querySelector('.status-indicator');
+                
+                // ステータスインジケータの更新
+                indicator.className = `status-indicator status-${status}`;
+                
+                // メッセージの更新
+                statusElement.innerHTML = `
+                    <span class="status-indicator status-${status}"></span>
+                    ${message}
+                `;
+            }
+
+            updateProgress(percentage) {
+                const progressFill = document.getElementById('progressFill');
+                progressFill.style.width = percentage + '%';
+            }
+
+            clearResults() {
+                this.testResults = [];
+                
+                // 結果コンテナをクリア
+                const containers = [
+                    'fieldExtractionResults',
+                    'rectangleSelectionResults', 
+                    'offlineTestResults',
+                    'workflowTestResults'
+                ];
+                
+                containers.forEach(containerId => {
+                    const container = document.getElementById(containerId);
+                    if (container) {
+                        container.innerHTML = '';
+                    }
+                });
+
+                // コンソール出力をクリア
+                document.getElementById('consoleOutput').textContent = '';
+
+                // 統計を隠す
+                document.getElementById('summaryStats').classList.add('hidden');
+
+                // プログレスバーをリセット
+                this.updateProgress(0);
+            }
+        }
+
+        // ページ読み込み完了後にテストランナーを初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            const testRunner = new E2ETestRunner();
+            
+            // URLパラメータで自動実行
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('auto-run')) {
+                setTimeout(() => {
+                    testRunner.runAllTests();
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+</html>

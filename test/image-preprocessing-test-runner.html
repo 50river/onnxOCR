@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画像前処理テストランナー</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            margin: 0 0 8px 0;
+            color: #1f2937;
+        }
+        
+        .header p {
+            margin: 0;
+            color: #6b7280;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .button {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-right: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .button:hover {
+            background: #047857;
+        }
+        
+        .button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .button.secondary {
+            background: #6b7280;
+        }
+        
+        .button.secondary:hover {
+            background: #4b5563;
+        }
+        
+        .status {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .status h3 {
+            margin: 0 0 12px 0;
+            color: #1f2937;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .status-value {
+            color: #6b7280;
+        }
+        
+        .status-value.success {
+            color: #059669;
+        }
+        
+        .status-value.error {
+            color: #dc2626;
+        }
+        
+        .console-output {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .requirements {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .requirements h3 {
+            margin: 0 0 16px 0;
+            color: #1f2937;
+        }
+        
+        .requirements ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .requirements li {
+            margin-bottom: 8px;
+            color: #374151;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #059669;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 画像前処理ユニットテスト</h1>
+            <p>EXIF補正、透視補正、エラーハンドリングの動作確認</p>
+        </div>
+
+        <div class="requirements">
+            <h3>📋 テスト対象機能</h3>
+            <ul>
+                <li><strong>EXIF補正:</strong> 各回転角度（1,3,6,8,2,4,5,7）の処理確認</li>
+                <li><strong>透視補正:</strong> OpenCV.jsを使用した四角形検出と補正処理</li>
+                <li><strong>エラーハンドリング:</strong> 不正データ、権限エラー、リソース不足の処理</li>
+                <li><strong>要件:</strong> 1.3（EXIF情報による自動回転補正）、1.4（透視補正の自動推定と手動調整）</li>
+            </ul>
+        </div>
+
+        <div class="controls">
+            <button id="runAllTests" class="button">
+                🚀 全テスト実行
+            </button>
+            <button id="runEXIFTests" class="button secondary">
+                📸 EXIF補正テスト
+            </button>
+            <button id="runPerspectiveTests" class="button secondary">
+                🔄 透視補正テスト
+            </button>
+            <button id="runErrorTests" class="button secondary">
+                ⚠️ エラーハンドリングテスト
+            </button>
+            <button id="clearConsole" class="button secondary">
+                🗑️ コンソールクリア
+            </button>
+        </div>
+
+        <div class="status">
+            <h3>📊 テスト状況</h3>
+            <div class="status-item">
+                <span class="status-label">EXIFReader</span>
+                <span id="exifStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">PerspectiveCorrection</span>
+                <span id="perspectiveStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">OpenCV.js</span>
+                <span id="opencvStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">実行中のテスト</span>
+                <span id="currentTest" class="status-value">なし</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">テスト結果</span>
+                <span id="testResults" class="status-value">未実行</span>
+            </div>
+        </div>
+
+        <div class="console-output" id="consoleOutput">
+            画像前処理テストランナーが準備完了しました。
+            「全テスト実行」ボタンをクリックしてテストを開始してください。
+        </div>
+    </div>
+
+    <!-- 必要なライブラリの読み込み -->
+    <script src="../js/exif-reader.js"></script>
+    <script src="../js/perspective-correction.js"></script>
+    <script src="image-preprocessing-tests.js"></script>
+
+    <!-- OpenCV.js の読み込み（CDN） -->
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady()"></script>
+
+    <script>
+        class TestRunner {
+            constructor() {
+                this.tests = null;
+                this.isRunning = false;
+                this.setupEventListeners();
+                this.checkDependencies();
+                this.setupConsoleCapture();
+            }
+
+            setupEventListeners() {
+                document.getElementById('runAllTests').addEventListener('click', () => this.runAllTests());
+                document.getElementById('runEXIFTests').addEventListener('click', () => this.runEXIFTests());
+                document.getElementById('runPerspectiveTests').addEventListener('click', () => this.runPerspectiveTests());
+                document.getElementById('runErrorTests').addEventListener('click', () => this.runErrorTests());
+                document.getElementById('clearConsole').addEventListener('click', () => this.clearConsole());
+            }
+
+            checkDependencies() {
+                // EXIFReader の確認
+                if (typeof EXIFReader !== 'undefined') {
+                    this.updateStatus('exifStatus', 'success', '利用可能');
+                } else {
+                    this.updateStatus('exifStatus', 'error', '未読み込み');
+                }
+
+                // PerspectiveCorrection の確認
+                if (typeof PerspectiveCorrection !== 'undefined') {
+                    this.updateStatus('perspectiveStatus', 'success', '利用可能');
+                } else {
+                    this.updateStatus('perspectiveStatus', 'error', '未読み込み');
+                }
+
+                // OpenCV.js の確認
+                this.checkOpenCV();
+            }
+
+            checkOpenCV() {
+                if (typeof cv !== 'undefined' && cv.Mat) {
+                    this.updateStatus('opencvStatus', 'success', '利用可能');
+                } else {
+                    this.updateStatus('opencvStatus', 'error', '読み込み中...');
+                    // 定期的にチェック
+                    setTimeout(() => this.checkOpenCV(), 1000);
+                }
+            }
+
+            updateStatus(elementId, type, text) {
+                const element = document.getElementById(elementId);
+                element.textContent = text;
+                element.className = `status-value ${type}`;
+            }
+
+            setupConsoleCapture() {
+                const originalLog = console.log;
+                const originalError = console.error;
+                const originalWarn = console.warn;
+                const consoleOutput = document.getElementById('consoleOutput');
+
+                const addToConsole = (message, type = 'log') => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : 'ℹ️';
+                    consoleOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                };
+
+                console.log = (...args) => {
+                    originalLog.apply(console, args);
+                    addToConsole(args.join(' '), 'log');
+                };
+
+                console.error = (...args) => {
+                    originalError.apply(console, args);
+                    addToConsole(args.join(' '), 'error');
+                };
+
+                console.warn = (...args) => {
+                    originalWarn.apply(console, args);
+                    addToConsole(args.join(' '), 'warn');
+                };
+            }
+
+            clearConsole() {
+                document.getElementById('consoleOutput').textContent = '';
+            }
+
+            setRunning(isRunning, testName = '') {
+                this.isRunning = isRunning;
+                const buttons = document.querySelectorAll('.button');
+                buttons.forEach(button => {
+                    if (button.id !== 'clearConsole') {
+                        button.disabled = isRunning;
+                    }
+                });
+
+                if (isRunning) {
+                    document.getElementById('currentTest').innerHTML = `<span class="loading"></span>${testName}`;
+                } else {
+                    document.getElementById('currentTest').textContent = 'なし';
+                }
+            }
+
+            async runAllTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, '全テスト実行中');
+                
+                try {
+                    this.tests = new ImagePreprocessingTests();
+                    await this.tests.runAllTests();
+                    
+                    const passedTests = this.tests.testResults.filter(result => result.passed).length;
+                    const totalTests = this.tests.testResults.length;
+                    
+                    this.updateStatus('testResults', 
+                        passedTests === totalTests ? 'success' : 'error',
+                        `${passedTests}/${totalTests} 合格`
+                    );
+                    
+                } catch (error) {
+                    console.error('テスト実行エラー:', error);
+                    this.updateStatus('testResults', 'error', 'エラー発生');
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runEXIFTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, 'EXIF補正テスト実行中');
+                
+                try {
+                    this.tests = new ImagePreprocessingTests();
+                    await this.tests.setupTestImages();
+                    await this.tests.testEXIFRotationCorrection();
+                    
+                    console.log('EXIF補正テストが完了しました');
+                } catch (error) {
+                    console.error('EXIFテスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runPerspectiveTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, '透視補正テスト実行中');
+                
+                try {
+                    this.tests = new ImagePreprocessingTests();
+                    await this.tests.setupTestImages();
+                    await this.tests.testPerspectiveCorrection();
+                    
+                    console.log('透視補正テストが完了しました');
+                } catch (error) {
+                    console.error('透視補正テスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runErrorTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, 'エラーハンドリングテスト実行中');
+                
+                try {
+                    this.tests = new ImagePreprocessingTests();
+                    await this.tests.testErrorHandling();
+                    
+                    console.log('エラーハンドリングテストが完了しました');
+                } catch (error) {
+                    console.error('エラーハンドリングテスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+        }
+
+        // OpenCV.js読み込み完了時のコールバック
+        function onOpenCvReady() {
+            console.log('OpenCV.js が読み込まれました');
+            if (window.testRunner) {
+                window.testRunner.checkOpenCV();
+            }
+        }
+
+        // ページ読み込み完了時にテストランナーを初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            window.testRunner = new TestRunner();
+            console.log('画像前処理テストランナーが初期化されました');
+        });
+    </script>
+</body>
+</html>

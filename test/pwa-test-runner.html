@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA機能テストランナー</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .test-status {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 16px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        .status-idle {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .status-running {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-complete {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-error {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        
+        .console-output {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 20px;
+        }
+        
+        .test-requirements {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        .requirement-item.met {
+            background: #f0f9ff;
+            color: #0c4a6e;
+        }
+        
+        .requirement-item.not-met {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+        
+        .requirement-icon {
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧪 PWA機能テストランナー</h1>
+        <p>領収書OCRアプリのPWA機能（オフライン動作、インストール可能性、キャッシュ更新）をテストします</p>
+    </div>
+
+    <div class="test-requirements">
+        <h2>📋 テスト要件確認</h2>
+        <div id="requirements-list">
+            <div class="requirement-item" id="req-https">
+                <span class="requirement-icon">⏳</span>
+                HTTPS接続またはlocalhost環境
+            </div>
+            <div class="requirement-item" id="req-sw-support">
+                <span class="requirement-icon">⏳</span>
+                Service Workerサポート
+            </div>
+            <div class="requirement-item" id="req-cache-support">
+                <span class="requirement-icon">⏳</span>
+                Cache APIサポート
+            </div>
+            <div class="requirement-item" id="req-manifest">
+                <span class="requirement-icon">⏳</span>
+                Manifestファイルの存在
+            </div>
+        </div>
+    </div>
+
+    <div class="test-controls">
+        <button id="run-tests-btn" class="btn btn-primary">
+            🚀 PWAテストを実行
+        </button>
+        <button id="clear-console-btn" class="btn btn-secondary">
+            🗑️ コンソールクリア
+        </button>
+        <button id="check-requirements-btn" class="btn btn-secondary">
+            🔍 要件再確認
+        </button>
+    </div>
+
+    <div id="test-status" class="test-status status-idle">
+        テスト待機中...
+    </div>
+
+    <div class="console-output" id="console-output">
+        PWAテストランナーが準備完了しました。
+        「PWAテストを実行」ボタンをクリックしてテストを開始してください。
+    </div>
+
+    <div class="footer">
+        <p>このテストランナーは要件6.1（PWA機能）と6.2（オフライン動作）の検証を行います</p>
+        <p>テスト結果はコンソールと画面上の両方に表示されます</p>
+    </div>
+
+    <script src="pwa-tests.js"></script>
+    <script>
+        class PWATestRunner {
+            constructor() {
+                this.consoleOutput = document.getElementById('console-output');
+                this.testStatus = document.getElementById('test-status');
+                this.runTestsBtn = document.getElementById('run-tests-btn');
+                this.clearConsoleBtn = document.getElementById('clear-console-btn');
+                this.checkRequirementsBtn = document.getElementById('check-requirements-btn');
+                
+                this.bindEvents();
+                this.checkRequirements();
+                this.interceptConsole();
+            }
+
+            bindEvents() {
+                this.runTestsBtn.addEventListener('click', () => this.runTests());
+                this.clearConsoleBtn.addEventListener('click', () => this.clearConsole());
+                this.checkRequirementsBtn.addEventListener('click', () => this.checkRequirements());
+            }
+
+            async runTests() {
+                this.setStatus('running', 'PWAテストを実行中...');
+                this.runTestsBtn.disabled = true;
+                
+                try {
+                    const tests = new PWATests();
+                    await tests.runAllTests();
+                    
+                    const passedTests = tests.testResults.filter(r => r.passed).length;
+                    const totalTests = tests.testResults.length;
+                    
+                    if (passedTests === totalTests) {
+                        this.setStatus('complete', `✅ すべてのテスト完了 (${passedTests}/${totalTests})`);
+                    } else {
+                        this.setStatus('error', `⚠️ テスト完了 (${passedTests}/${totalTests} 合格)`);
+                    }
+                } catch (error) {
+                    this.setStatus('error', `❌ テスト実行エラー: ${error.message}`);
+                    this.log(`エラー詳細: ${error.stack}`);
+                } finally {
+                    this.runTestsBtn.disabled = false;
+                }
+            }
+
+            async checkRequirements() {
+                const requirements = [
+                    {
+                        id: 'req-https',
+                        check: () => location.protocol === 'https:' || location.hostname === 'localhost',
+                        text: 'HTTPS接続またはlocalhost環境'
+                    },
+                    {
+                        id: 'req-sw-support',
+                        check: () => 'serviceWorker' in navigator,
+                        text: 'Service Workerサポート'
+                    },
+                    {
+                        id: 'req-cache-support',
+                        check: () => 'caches' in window,
+                        text: 'Cache APIサポート'
+                    },
+                    {
+                        id: 'req-manifest',
+                        check: async () => {
+                            try {
+                                const response = await fetch('/manifest.json');
+                                return response.ok;
+                            } catch {
+                                return false;
+                            }
+                        },
+                        text: 'Manifestファイルの存在'
+                    }
+                ];
+
+                for (const req of requirements) {
+                    const element = document.getElementById(req.id);
+                    const icon = element.querySelector('.requirement-icon');
+                    
+                    try {
+                        const met = await req.check();
+                        element.className = `requirement-item ${met ? 'met' : 'not-met'}`;
+                        icon.textContent = met ? '✅' : '❌';
+                    } catch (error) {
+                        element.className = 'requirement-item not-met';
+                        icon.textContent = '❌';
+                    }
+                }
+            }
+
+            setStatus(type, message) {
+                this.testStatus.className = `test-status status-${type}`;
+                this.testStatus.textContent = message;
+            }
+
+            clearConsole() {
+                this.consoleOutput.textContent = 'コンソールがクリアされました。\n';
+            }
+
+            log(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                this.consoleOutput.textContent += `[${timestamp}] ${message}\n`;
+                this.consoleOutput.scrollTop = this.consoleOutput.scrollHeight;
+            }
+
+            interceptConsole() {
+                const originalLog = console.log;
+                const originalError = console.error;
+                const originalWarn = console.warn;
+
+                console.log = (...args) => {
+                    originalLog.apply(console, args);
+                    this.log(args.join(' '));
+                };
+
+                console.error = (...args) => {
+                    originalError.apply(console, args);
+                    this.log('ERROR: ' + args.join(' '));
+                };
+
+                console.warn = (...args) => {
+                    originalWarn.apply(console, args);
+                    this.log('WARN: ' + args.join(' '));
+                };
+            }
+        }
+
+        // テストランナーの初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            window.testRunner = new PWATestRunner();
+        });
+    </script>
+</body>
+</html>

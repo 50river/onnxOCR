@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>フィールド抽出テスト</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .test-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .info {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>フィールド抽出機能テスト</h1>
+        
+        <div class="test-section">
+            <h3>個別機能テスト</h3>
+            <button class="test-button" onclick="runDateTest()">日付抽出テスト</button>
+            <button class="test-button" onclick="runAmountTest()">金額抽出テスト</button>
+            <button class="test-button" onclick="runPayeeTest()">支払先抽出テスト</button>
+            <button class="test-button" onclick="runPurposeTest()">適用項目抽出テスト</button>
+            <button class="test-button" onclick="runEraTest()">和暦変換テスト</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>統合テスト</h3>
+            <button class="test-button" onclick="runFullTest()">全体統合テスト</button>
+            <button class="test-button" onclick="runAllTests()">全テスト実行</button>
+            <button class="test-button" onclick="runComprehensiveTests()">包括的ユニットテスト</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>詳細テスト（タスク5.5対応）</h3>
+            <button class="test-button" onclick="runBoundaryTests()">境界値テスト</button>
+            <button class="test-button" onclick="runPrecisionTests()">精度テスト</button>
+            <button class="test-button" onclick="testErrorCases()">エラーケーステスト</button>
+            <button class="test-button" onclick="testIntegrationAndPerformance()">統合・性能テスト</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>テスト結果</h3>
+            <div id="test-output" class="test-output">テストを実行してください...</div>
+        </div>
+    </div>
+
+    <!-- フィールド抽出エンジンの読み込み -->
+    <script src="../js/field-extractor.js"></script>
+    <!-- 包括的テストの読み込み -->
+    <script src="field-extraction-tests.js"></script>
+    
+    <script>
+        // テスト出力用の関数
+        function logToOutput(message, type = 'info') {
+            const output = document.getElementById('test-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('test-output').innerHTML = '';
+        }
+
+        // console.logをオーバーライドしてテスト出力に表示
+        const originalLog = console.log;
+        console.log = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('✅')) {
+                logToOutput(message, 'success');
+            } else if (message.includes('❌')) {
+                logToOutput(message, 'error');
+            } else {
+                logToOutput(message, 'info');
+            }
+            originalLog.apply(console, args);
+        };
+
+        // テスト用のモックデータ
+        const mockTextBlocks = [
+            {
+                text: '令和5年12月15日',
+                boundingBox: { x: 0.1, y: 0.1, width: 0.3, height: 0.05 },
+                fontSize: 14
+            },
+            {
+                text: '株式会社テストストア',
+                boundingBox: { x: 0.1, y: 0.2, width: 0.4, height: 0.06 },
+                fontSize: 18
+            },
+            {
+                text: '合計 ¥1,500',
+                boundingBox: { x: 0.6, y: 0.7, width: 0.2, height: 0.05 },
+                fontSize: 16
+            },
+            {
+                text: 'コーヒー',
+                boundingBox: { x: 0.1, y: 0.5, width: 0.2, height: 0.04 },
+                fontSize: 12
+            },
+            {
+                text: 'サンドイッチ',
+                boundingBox: { x: 0.1, y: 0.55, width: 0.25, height: 0.04 },
+                fontSize: 12
+            }
+        ];
+
+        // 個別テスト関数
+        function runDateTest() {
+            clearOutput();
+            logToOutput('=== 日付抽出テスト開始 ===');
+            
+            const extractor = new FieldExtractor();
+            const result = extractor.extractDate(mockTextBlocks);
+            
+            logToOutput(`抽出結果: ${JSON.stringify(result, null, 2)}`);
+            
+            const expected = '2023/12/15';
+            if (result.value === expected) {
+                logToOutput('✅ 日付抽出成功', 'success');
+            } else {
+                logToOutput(`❌ 日付抽出失敗 - 期待値: ${expected}, 実際: ${result.value}`, 'error');
+            }
+            
+            if (result.confidence > 0.5) {
+                logToOutput(`✅ 信頼度適切: ${result.confidence}`, 'success');
+            } else {
+                logToOutput(`❌ 信頼度低い: ${result.confidence}`, 'error');
+            }
+        }
+
+        function runAmountTest() {
+            clearOutput();
+            logToOutput('=== 金額抽出テスト開始 ===');
+            
+            const extractor = new FieldExtractor();
+            const result = extractor.extractAmount(mockTextBlocks);
+            
+            logToOutput(`抽出結果: ${JSON.stringify(result, null, 2)}`);
+            
+            const expected = 1500;
+            if (result.value === expected) {
+                logToOutput('✅ 金額抽出成功', 'success');
+            } else {
+                logToOutput(`❌ 金額抽出失敗 - 期待値: ${expected}, 実際: ${result.value}`, 'error');
+            }
+        }
+
+        function runPayeeTest() {
+            clearOutput();
+            logToOutput('=== 支払先抽出テスト開始 ===');
+            
+            const extractor = new FieldExtractor();
+            const result = extractor.extractPayee(mockTextBlocks);
+            
+            logToOutput(`抽出結果: ${JSON.stringify(result, null, 2)}`);
+            
+            const expected = '株式会社テストストア';
+            if (result.value === expected) {
+                logToOutput('✅ 支払先抽出成功', 'success');
+            } else {
+                logToOutput(`❌ 支払先抽出失敗 - 期待値: ${expected}, 実際: ${result.value}`, 'error');
+            }
+        }
+
+        function runPurposeTest() {
+            clearOutput();
+            logToOutput('=== 適用項目抽出テスト開始 ===');
+            
+            const extractor = new FieldExtractor();
+            const result = extractor.extractPurpose(mockTextBlocks);
+            
+            logToOutput(`抽出結果: ${JSON.stringify(result, null, 2)}`);
+            
+            if (result.value && result.value.length > 0) {
+                logToOutput('✅ 適用項目抽出成功', 'success');
+            } else {
+                logToOutput('❌ 適用項目抽出失敗', 'error');
+            }
+        }
+
+        function runEraTest() {
+            clearOutput();
+            logToOutput('=== 和暦変換テスト開始 ===');
+            
+            const extractor = new FieldExtractor();
+            
+            const testCases = [
+                { input: ['令和', '5', '12', '15'], expected: '2023/12/15' },
+                { input: ['平成', '31', '4', '30'], expected: '2019/04/30' },
+                { input: ['昭和', '64', '1', '7'], expected: '1989/01/07' }
+            ];
+            
+            for (const testCase of testCases) {
+                const result = extractor.normalizeDate(testCase.input, 2023);
+                if (result === testCase.expected) {
+                    logToOutput(`✅ ${testCase.input[0]}${testCase.input[1]}年 変換成功: ${result}`, 'success');
+                } else {
+                    logToOutput(`❌ ${testCase.input[0]}${testCase.input[1]}年 変換失敗 - 期待値: ${testCase.expected}, 実際: ${result}`, 'error');
+                }
+            }
+        }
+
+        function runFullTest() {
+            clearOutput();
+            logToOutput('=== 全体統合テスト開始 ===');
+            
+            const extractor = new FieldExtractor();
+            
+            extractor.extractFields(mockTextBlocks).then(result => {
+                logToOutput(`全体抽出結果: ${JSON.stringify(result, null, 2)}`);
+                
+                const checks = [
+                    { field: 'date', expected: '2023/12/15' },
+                    { field: 'amount', expected: 1500 },
+                    { field: 'payee', expected: '株式会社テストストア' }
+                ];
+                
+                let passCount = 0;
+                for (const check of checks) {
+                    if (result[check.field].value === check.expected) {
+                        logToOutput(`✅ ${check.field} 正常: ${result[check.field].value}`, 'success');
+                        passCount++;
+                    } else {
+                        logToOutput(`❌ ${check.field} 異常 - 期待値: ${check.expected}, 実際: ${result[check.field].value}`, 'error');
+                    }
+                }
+                
+                logToOutput(`結果: ${passCount}/${checks.length} テスト通過`);
+            });
+        }
+
+        function runAllTests() {
+            clearOutput();
+            logToOutput('=== 全テスト実行開始 ===');
+            
+            // フォールバック: 個別テストを実行
+            setTimeout(() => runDateTest(), 100);
+            setTimeout(() => runAmountTest(), 500);
+            setTimeout(() => runPayeeTest(), 900);
+            setTimeout(() => runPurposeTest(), 1300);
+            setTimeout(() => runEraTest(), 1700);
+            setTimeout(() => runFullTest(), 2100);
+        }
+
+        function runComprehensiveTests() {
+            clearOutput();
+            logToOutput('=== 包括的ユニットテスト実行開始 ===');
+            
+            // 新しい包括的なテストを実行
+            if (typeof runFieldExtractionTests === 'function') {
+                runFieldExtractionTests();
+            } else if (typeof runAllFieldExtractionTests === 'function') {
+                runAllFieldExtractionTests();
+            } else {
+                logToOutput('❌ 包括的テストが読み込まれていません', 'error');
+                logToOutput('利用可能な関数:', 'info');
+                logToOutput(Object.keys(window).filter(key => key.includes('test')).join(', '), 'info');
+            }
+        }
+
+        function runBoundaryTests() {
+            clearOutput();
+            logToOutput('=== 境界値テスト実行開始 ===');
+            
+            if (typeof testDateBoundaryValues === 'function') {
+                testDateBoundaryValues();
+            } else {
+                logToOutput('❌ 境界値テストが読み込まれていません', 'error');
+            }
+        }
+
+        function runPrecisionTests() {
+            clearOutput();
+            logToOutput('=== 精度テスト実行開始 ===');
+            
+            if (typeof testAmountExtractionPrecision === 'function') {
+                testAmountExtractionPrecision();
+            }
+            if (typeof testPayeeEstimationPrecision === 'function') {
+                testPayeeEstimationPrecision();
+            }
+            if (typeof testPurposeSummaryQuality === 'function') {
+                testPurposeSummaryQuality();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+# Placeholder for external libraries
+# Libraries will be added in later tasks:
+# - onnxruntime-web
+# - opencv.js
+# - tesseract.js (fallback)
+# - jszip (for export functionality)

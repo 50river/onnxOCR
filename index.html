@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="オフライン動作する領収書OCRアプリ">
+    <title>領収書OCR</title>
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS PWA support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="領収書OCR">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
+    
+    <!-- Theme color -->
+    <meta name="theme-color" content="#2563eb">
+    
+    <!-- Security headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' blob: data:;">
+    <meta http-equiv="Permissions-Policy" content="camera=self, microphone=(), geolocation=()">
+    
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>領収書OCR</h1>
+            <div class="status-indicator" id="status-indicator" aria-live="polite">
+                <span class="status-text">準備完了</span>
+            </div>
+        </header>
+
+        <!-- Main content -->
+        <main class="main-content">
+            <!-- Image upload and display section -->
+            <section class="image-section" aria-label="画像処理エリア">
+                <div class="upload-area">
+                    <input 
+                        type="file" 
+                        id="image-input" 
+                        accept="image/*" 
+                        capture="environment"
+                        class="visually-hidden"
+                        aria-describedby="upload-help"
+                    >
+                    <label for="image-input" class="upload-button">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                            <circle cx="12" cy="13" r="4"></circle>
+                        </svg>
+                        <span>写真を撮影 / 画像を選択</span>
+                    </label>
+                    <p id="upload-help" class="upload-help">
+                        領収書の写真を撮影するか、既存の画像を選択してください
+                    </p>
+                </div>
+
+                <div class="image-display" id="image-display" style="display: none;">
+                    <div class="image-container">
+                        <canvas id="image-canvas" class="image-canvas"></canvas>
+                        
+                        <!-- 透視補正オーバーレイ -->
+                        <div class="perspective-overlay" id="perspective-overlay" style="display: none;">
+                            <svg class="perspective-svg" id="perspective-svg">
+                                <polygon class="perspective-polygon" id="perspective-polygon" fill="rgba(37, 99, 235, 0.2)" stroke="#2563eb" stroke-width="2"></polygon>
+                                <circle class="corner-handle" id="corner-0" r="8" fill="#2563eb" stroke="white" stroke-width="2" style="cursor: grab;"></circle>
+                                <circle class="corner-handle" id="corner-1" r="8" fill="#2563eb" stroke="white" stroke-width="2" style="cursor: grab;"></circle>
+                                <circle class="corner-handle" id="corner-2" r="8" fill="#2563eb" stroke="white" stroke-width="2" style="cursor: grab;"></circle>
+                                <circle class="corner-handle" id="corner-3" r="8" fill="#2563eb" stroke="white" stroke-width="2" style="cursor: grab;"></circle>
+                            </svg>
+                        </div>
+                        
+                        <!-- 矩形選択オーバーレイ -->
+                        <div class="rectangle-overlay" id="rectangle-overlay" style="display: none;">
+                            <div class="rectangle-instructions">
+                                <p>ドラッグして範囲を選択してください</p>
+                                <div class="rectangle-controls">
+                                    <button type="button" class="control-button" id="zoom-in" aria-label="ズームイン">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="11" cy="11" r="8"></circle>
+                                            <path d="M21 21l-4.35-4.35"></path>
+                                            <line x1="11" y1="8" x2="11" y2="14"></line>
+                                            <line x1="8" y1="11" x2="14" y2="11"></line>
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="control-button" id="zoom-out" aria-label="ズームアウト">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="11" cy="11" r="8"></circle>
+                                            <path d="M21 21l-4.35-4.35"></path>
+                                            <line x1="8" y1="11" x2="14" y2="11"></line>
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="control-button" id="zoom-reset" aria-label="ズームリセット">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="image-controls">
+                            <button type="button" class="control-button" id="reset-image" aria-label="画像をリセット">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <polyline points="1 4 1 10 7 10"></polyline>
+                                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                                </svg>
+                                リセット
+                            </button>
+                            <button type="button" class="control-button" id="rectangle-select-button" aria-label="矩形選択モード">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <path d="M9 9h6v6H9z"></path>
+                                </svg>
+                                範囲選択
+                            </button>
+                            <button type="button" class="control-button" id="perspective-button" aria-label="透視補正を調整">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M3 3h18v18H3z"></path>
+                                    <path d="M8 8l8 8"></path>
+                                    <path d="M16 8l-8 8"></path>
+                                </svg>
+                                透視補正
+                            </button>
+                            <button type="button" class="control-button success" id="apply-perspective" style="display: none;" aria-label="透視補正を適用">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                適用
+                            </button>
+                            <button type="button" class="control-button" id="cancel-perspective" style="display: none;" aria-label="透視補正をキャンセル">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                                キャンセル
+                            </button>
+                            <button type="button" class="control-button success" id="apply-selection" style="display: none;" aria-label="選択範囲でOCR実行">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                OCR実行
+                            </button>
+                            <button type="button" class="control-button" id="cancel-selection" style="display: none;" aria-label="範囲選択をキャンセル">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                                キャンセル
+                            </button>
+                            <button type="button" class="control-button primary" id="process-image" aria-label="OCR処理を開始">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                OCR実行
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Form section -->
+            <section class="form-section" aria-label="抽出結果フォーム">
+                <h2>抽出結果</h2>
+                <form id="receipt-form" class="receipt-form">
+                    <div class="form-group">
+                        <label for="date-field" class="form-label">
+                            日付
+                            <span class="confidence-indicator" id="date-confidence" aria-label="信頼度"></span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="date-field" 
+                            name="date" 
+                            class="form-input"
+                            placeholder="YYYY/MM/DD"
+                            aria-describedby="date-help"
+                        >
+                        <p id="date-help" class="field-help">例: 2024/03/15</p>
+                        <div class="candidates-list" id="date-candidates" style="display: none;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="payee-field" class="form-label">
+                            支払先
+                            <span class="confidence-indicator" id="payee-confidence" aria-label="信頼度"></span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="payee-field" 
+                            name="payee" 
+                            class="form-input"
+                            placeholder="支払先名"
+                            aria-describedby="payee-help"
+                        >
+                        <p id="payee-help" class="field-help">店舗名や会社名</p>
+                        <div class="candidates-list" id="payee-candidates" style="display: none;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="amount-field" class="form-label">
+                            金額
+                            <span class="confidence-indicator" id="amount-confidence" aria-label="信頼度"></span>
+                        </label>
+                        <input 
+                            type="number" 
+                            id="amount-field" 
+                            name="amount" 
+                            class="form-input"
+                            placeholder="0"
+                            min="0"
+                            step="1"
+                            aria-describedby="amount-help"
+                        >
+                        <p id="amount-help" class="field-help">税込金額（円）</p>
+                        <div class="candidates-list" id="amount-candidates" style="display: none;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="purpose-field" class="form-label">
+                            適用
+                            <span class="confidence-indicator" id="purpose-confidence" aria-label="信頼度"></span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="purpose-field" 
+                            name="purpose" 
+                            class="form-input"
+                            placeholder="利用内容"
+                            aria-describedby="purpose-help"
+                        >
+                        <p id="purpose-help" class="field-help">会議費、交通費など</p>
+                        <div class="candidates-list" id="purpose-candidates" style="display: none;"></div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="action-button secondary" id="save-button">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            保存
+                        </button>
+                        <button type="button" class="action-button primary" id="export-button">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            エクスポート
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </main>
+
+        <!-- Progress indicator -->
+        <div class="progress-overlay" id="progress-overlay" style="display: none;" aria-live="assertive">
+            <div class="progress-content">
+                <div class="progress-spinner" aria-hidden="true"></div>
+                <p class="progress-text" id="progress-text">処理中...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+    <script src="js/exif-reader.js"></script>
+    <script src="js/perspective-correction.js"></script>
+    <script src="js/rectangle-selector.js"></script>
+    <script src="js/ocr-engine.js"></script>
+    <script src="js/error-handler.js"></script>
+    <script src="js/error-display.js"></script>
+    <script src="js/error-recovery.js"></script>
+    <script src="js/resource-monitor.js"></script>
+    <script src="js/storage-manager.js"></script>
+    <script src="js/export-manager.js"></script>
+    <script src="js/zip-export-manager.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

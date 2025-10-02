@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>エラーハンドリング包括テストランナー</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <style>
+        body {
+            padding: 2rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+        }
+        
+        .test-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-section h3 {
+            margin: 0 0 1rem 0;
+            color: #1f2937;
+            font-size: 1.1rem;
+        }
+        
+        .test-button {
+            width: 100%;
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            transition: background-color 0.2s;
+        }
+        
+        .test-button:hover {
+            background: #1d4ed8;
+        }
+        
+        .test-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .test-button.success {
+            background: #059669;
+        }
+        
+        .test-button.error {
+            background: #dc2626;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #2563eb;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .results-container {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 2rem;
+        }
+        
+        .results-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .results-content {
+            padding: 1.5rem;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .test-result {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .test-result:last-child {
+            border-bottom: none;
+        }
+        
+        .test-status {
+            font-size: 1.2rem;
+            margin-right: 0.75rem;
+            min-width: 24px;
+        }
+        
+        .test-name {
+            font-weight: 500;
+            color: #1f2937;
+            flex: 1;
+        }
+        
+        .test-details {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-left: 2rem;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 0.375rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+        
+        .console-output {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.875rem;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-header">
+        <h1>🧪 エラーハンドリング包括テストランナー</h1>
+        <p>領収書OCRアプリのエラーハンドリングシステムの包括的なテストを実行します</p>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div id="progress-text">テスト準備完了</div>
+    </div>
+
+    <div class="test-controls">
+        <div class="test-section">
+            <h3>🚀 メインテスト</h3>
+            <button class="test-button" id="run-all-tests" onclick="runAllTests()">
+                全テストを実行
+            </button>
+            <button class="test-button" onclick="runQuickTest()">
+                クイックテスト
+            </button>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 個別テスト</h3>
+            <button class="test-button" onclick="runSpecificTest('classification')">
+                エラー分類テスト
+            </button>
+            <button class="test-button" onclick="runSpecificTest('permission')">
+                権限エラーテスト
+            </button>
+            <button class="test-button" onclick="runSpecificTest('resource')">
+                リソースエラーテスト
+            </button>
+        </div>
+
+        <div class="test-section">
+            <h3>🔄 機能テスト</h3>
+            <button class="test-button" onclick="runSpecificTest('fallback')">
+                フォールバック機能
+            </button>
+            <button class="test-button" onclick="runSpecificTest('recovery')">
+                復旧戦略テスト
+            </button>
+            <button class="test-button" onclick="runSpecificTest('usability')">
+                ユーザビリティテスト
+            </button>
+        </div>
+
+        <div class="test-section">
+            <h3>🖥️ UI・統合テスト</h3>
+            <button class="test-button" onclick="runSpecificTest('display')">
+                エラー表示テスト
+            </button>
+            <button class="test-button" onclick="runSpecificTest('monitoring')">
+                リソース監視テスト
+            </button>
+            <button class="test-button" onclick="runSpecificTest('integration')">
+                統合テスト
+            </button>
+        </div>
+
+        <div class="test-section">
+            <h3>🛠️ ユーティリティ</h3>
+            <button class="test-button" onclick="clearTestResults()">
+                結果をクリア
+            </button>
+            <button class="test-button" onclick="exportTestResults()">
+                結果をエクスポート
+            </button>
+            <button class="test-button" onclick="showSystemInfo()">
+                システム情報
+            </button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 統計情報</h3>
+            <button class="test-button" onclick="showRecoveryStats()">
+                復旧統計
+            </button>
+            <button class="test-button" onclick="showErrorLogs()">
+                エラーログ
+            </button>
+            <button class="test-button" onclick="clearAllData()">
+                全データクリア
+            </button>
+        </div>
+    </div>
+
+    <div class="results-container" id="results-container">
+        <div class="results-header">
+            <h2>📋 テスト結果</h2>
+            <button class="test-button" onclick="toggleConsole()" style="width: auto; padding: 0.5rem 1rem;">
+                コンソール表示切替
+            </button>
+        </div>
+        
+        <div class="results-content">
+            <div class="summary-stats" id="summary-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-tests">0</div>
+                    <div class="stat-label">総テスト数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="passed-tests">0</div>
+                    <div class="stat-label">成功</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="failed-tests">0</div>
+                    <div class="stat-label">失敗</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="success-rate">0%</div>
+                    <div class="stat-label">成功率</div>
+                </div>
+            </div>
+            
+            <div id="test-results-list"></div>
+            
+            <div class="console-output hidden" id="console-output"></div>
+        </div>
+    </div>
+
+    <!-- エラーハンドリングスクリプト -->
+    <script src="../js/error-recovery.js"></script>
+    <script src="../js/error-handler.js"></script>
+    <script src="../js/error-display.js"></script>
+    <script src="../js/resource-monitor.js"></script>
+    <script src="error-handling-tests.js"></script>
+
+    <script>
+        // テストランナーの状態管理
+        let currentTests = null;
+        let isRunning = false;
+        let consoleMessages = [];
+
+        // コンソールメッセージをキャプチャ
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            consoleMessages.push({ type: 'log', message: args.join(' '), timestamp: new Date().toISOString() });
+            updateConsoleOutput();
+        };
+
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            consoleMessages.push({ type: 'error', message: args.join(' '), timestamp: new Date().toISOString() });
+            updateConsoleOutput();
+        };
+
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+            consoleMessages.push({ type: 'warn', message: args.join(' '), timestamp: new Date().toISOString() });
+            updateConsoleOutput();
+        };
+
+        // 全テストの実行
+        async function runAllTests() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            updateProgress(0, 'テストを初期化中...');
+            disableButtons(true);
+            
+            try {
+                currentTests = new ErrorHandlingTests();
+                
+                updateProgress(10, 'エラーハンドリングシステムを初期化中...');
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                updateProgress(20, 'テストを実行中...');
+                const results = await currentTests.runAllTests();
+                
+                updateProgress(100, `テスト完了: ${results.passedTests}/${results.totalTests} 成功`);
+                updateTestResults(currentTests.testResults, results);
+                
+            } catch (error) {
+                console.error('テスト実行エラー:', error);
+                updateProgress(0, `テスト失敗: ${error.message}`);
+            } finally {
+                isRunning = false;
+                disableButtons(false);
+            }
+        }
+
+        // クイックテストの実行
+        async function runQuickTest() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            updateProgress(0, 'クイックテストを実行中...');
+            disableButtons(true);
+            
+            try {
+                currentTests = new ErrorHandlingTests();
+                
+                // 主要なテストのみ実行
+                await currentTests.testErrorClassification();
+                await currentTests.testPermissionErrors();
+                await currentTests.testFallbackFunctionality();
+                
+                const results = currentTests.displayTestResults();
+                updateProgress(100, `クイックテスト完了: ${results.passedTests}/${results.totalTests} 成功`);
+                updateTestResults(currentTests.testResults, results);
+                
+            } catch (error) {
+                console.error('クイックテスト実行エラー:', error);
+                updateProgress(0, `テスト失敗: ${error.message}`);
+            } finally {
+                isRunning = false;
+                disableButtons(false);
+            }
+        }
+
+        // 特定テストの実行
+        async function runSpecificTest(testType) {
+            if (isRunning) return;
+            
+            isRunning = true;
+            updateProgress(0, `${testType} テストを実行中...`);
+            disableButtons(true);
+            
+            try {
+                currentTests = new ErrorHandlingTests();
+                await currentTests.runSpecificTest(testType);
+                
+                const results = currentTests.displayTestResults();
+                updateProgress(100, `${testType} テスト完了: ${results.passedTests}/${results.totalTests} 成功`);
+                updateTestResults(currentTests.testResults, results);
+                
+            } catch (error) {
+                console.error(`${testType} テスト実行エラー:`, error);
+                updateProgress(0, `テスト失敗: ${error.message}`);
+            } finally {
+                isRunning = false;
+                disableButtons(false);
+            }
+        }
+
+        // 進行状況の更新
+        function updateProgress(percentage, message) {
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            
+            progressFill.style.width = `${percentage}%`;
+            progressText.textContent = message;
+        }
+
+        // ボタンの有効/無効切り替え
+        function disableButtons(disabled) {
+            const buttons = document.querySelectorAll('.test-button');
+            buttons.forEach(button => {
+                button.disabled = disabled;
+            });
+        }
+
+        // テスト結果の更新
+        function updateTestResults(testResults, summary) {
+            // 統計の更新
+            document.getElementById('total-tests').textContent = summary.totalTests;
+            document.getElementById('passed-tests').textContent = summary.passedTests;
+            document.getElementById('failed-tests').textContent = summary.failedTests;
+            document.getElementById('success-rate').textContent = summary.successRate + '%';
+            
+            // 結果リストの更新
+            const resultsList = document.getElementById('test-results-list');
+            resultsList.innerHTML = '';
+            
+            testResults.forEach(result => {
+                const resultElement = document.createElement('div');
+                resultElement.className = 'test-result';
+                
+                const status = result.passed ? '✅' : '❌';
+                
+                resultElement.innerHTML = `
+                    <div class="test-status">${status}</div>
+                    <div>
+                        <div class="test-name">${result.name}</div>
+                        <div class="test-details">${result.details}</div>
+                    </div>
+                `;
+                
+                resultsList.appendChild(resultElement);
+            });
+        }
+
+        // コンソール出力の更新
+        function updateConsoleOutput() {
+            const consoleOutput = document.getElementById('console-output');
+            const recentMessages = consoleMessages.slice(-50); // 最新50件のみ表示
+            
+            consoleOutput.innerHTML = recentMessages.map(msg => {
+                const time = new Date(msg.timestamp).toLocaleTimeString();
+                const typeColor = {
+                    'log': '#f9fafb',
+                    'error': '#fca5a5',
+                    'warn': '#fcd34d'
+                }[msg.type] || '#f9fafb';
+                
+                return `<div style="color: ${typeColor};">[${time}] ${msg.message}</div>`;
+            }).join('');
+            
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        // コンソール表示の切り替え
+        function toggleConsole() {
+            const consoleOutput = document.getElementById('console-output');
+            consoleOutput.classList.toggle('hidden');
+        }
+
+        // テスト結果のクリア
+        function clearTestResults() {
+            document.getElementById('test-results-list').innerHTML = '';
+            document.getElementById('total-tests').textContent = '0';
+            document.getElementById('passed-tests').textContent = '0';
+            document.getElementById('failed-tests').textContent = '0';
+            document.getElementById('success-rate').textContent = '0%';
+            consoleMessages = [];
+            updateConsoleOutput();
+            updateProgress(0, 'テスト準備完了');
+        }
+
+        // テスト結果のエクスポート
+        function exportTestResults() {
+            if (!currentTests || !currentTests.testResults) {
+                alert('エクスポートするテスト結果がありません');
+                return;
+            }
+            
+            const data = {
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                testResults: currentTests.testResults,
+                consoleMessages: consoleMessages
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `error-handling-test-results-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            URL.revokeObjectURL(url);
+        }
+
+        // システム情報の表示
+        function showSystemInfo() {
+            const resourceMonitor = new ResourceMonitor();
+            const info = resourceMonitor.getResourceInfo();
+            
+            const systemInfo = {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                platform: navigator.platform,
+                cookieEnabled: navigator.cookieEnabled,
+                onLine: navigator.onLine,
+                resourceInfo: info,
+                localStorage: {
+                    available: typeof Storage !== 'undefined',
+                    errorLogs: localStorage.getItem('errorLogs') ? JSON.parse(localStorage.getItem('errorLogs')).length : 0
+                }
+            };
+            
+            alert(`システム情報:\n${JSON.stringify(systemInfo, null, 2)}`);
+        }
+
+        // 復旧統計の表示
+        function showRecoveryStats() {
+            const errorRecovery = new ErrorRecovery();
+            const report = errorRecovery.generateRecoveryReport();
+            
+            const popup = window.open('', '_blank', 'width=600,height=400');
+            popup.document.write(`
+                <html>
+                    <head><title>復旧統計レポート</title></head>
+                    <body style="font-family: monospace; padding: 20px; white-space: pre-wrap;">
+                        ${report}
+                    </body>
+                </html>
+            `);
+        }
+
+        // エラーログの表示
+        function showErrorLogs() {
+            const errorHandler = new ErrorHandler();
+            const logs = errorHandler.getErrorLogs();
+            
+            const popup = window.open('', '_blank', 'width=800,height=600');
+            popup.document.write(`
+                <html>
+                    <head><title>エラーログ</title></head>
+                    <body style="font-family: monospace; padding: 20px;">
+                        <h2>エラーログ (${logs.length}件)</h2>
+                        <pre>${JSON.stringify(logs, null, 2)}</pre>
+                    </body>
+                </html>
+            `);
+        }
+
+        // 全データのクリア
+        function clearAllData() {
+            if (confirm('すべてのテストデータとログをクリアしますか？')) {
+                const errorHandler = new ErrorHandler();
+                const errorRecovery = new ErrorRecovery();
+                
+                errorHandler.clearErrorLogs();
+                errorRecovery.clearRecoveryHistory();
+                localStorage.removeItem('errorHandlingTestResults');
+                
+                clearTestResults();
+                alert('すべてのデータをクリアしました');
+            }
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🧪 エラーハンドリングテストランナーが初期化されました');
+            console.log('テストを実行するには上部のボタンをクリックしてください');
+            
+            // 前回のテスト結果があれば復元
+            try {
+                const savedResults = localStorage.getItem('errorHandlingTestResults');
+                if (savedResults) {
+                    const data = JSON.parse(savedResults);
+                    updateTestResults(data.results, data.summary);
+                    console.log('前回のテスト結果を復元しました');
+                }
+            } catch (error) {
+                console.warn('前回のテスト結果の復元に失敗:', error);
+            }
+        });
+    </script>
+</body>
+</html>

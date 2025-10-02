@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#2563eb;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    
+    <!-- 背景 -->
+    <rect width="128" height="128" rx="12.8" fill="url(#grad)"/>
+    
+    <!-- 領収書アイコン -->
+    <g transform="translate(25.6, 19.2)">
+        <!-- 紙 -->
+        <rect x="0" y="0" width="76.8" height="89.6" rx="2.56" fill="white" opacity="0.95"/>
+        
+        <!-- テキスト行 -->
+        <rect x="6.4" y="12.8" width="64" height="3.84" rx="1.28" fill="#2563eb" opacity="0.3"/>
+        <rect x="6.4" y="23.04" width="51.2" height="3.84" rx="1.28" fill="#2563eb" opacity="0.3"/>
+        <rect x="6.4" y="33.28" width="57.6" height="3.84" rx="1.28" fill="#2563eb" opacity="0.3"/>
+        
+        <!-- 金額部分 -->
+        <rect x="6.4" y="51.2" width="38.4" height="6.4" rx="1.28" fill="#dc2626" opacity="0.6"/>
+        
+        <!-- OCRスキャンライン -->
+        <rect x="0" y="70.4" width="76.8" height="1.28" fill="#10b981" opacity="0.8"/>
+    </g>
+    
+    <!-- サイズ表示 -->
+    <text x="64" y="121.6" text-anchor="middle" font-family="Arial, sans-serif" font-size="10.24" fill="white" opacity="0.7">128px</text>
+</svg>

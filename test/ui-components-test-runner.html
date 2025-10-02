@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UIコンポーネントテスト - 実行環境</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <style>
+        .test-runner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .test-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .test-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .test-button.primary {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .test-button.primary:hover {
+            background: #1d4ed8;
+        }
+        
+        .test-button.secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .test-button.secondary:hover {
+            background: #4b5563;
+        }
+        
+        .test-button.success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .test-button.success:hover {
+            background: #059669;
+        }
+        
+        .test-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .test-output {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+        
+        .test-status {
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .test-status.running {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fbbf24;
+        }
+        
+        .test-status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        
+        .test-status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        
+        .requirements-checklist {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .requirement-item:last-child {
+            border-bottom: none;
+        }
+        
+        .requirement-checkbox {
+            margin-right: 10px;
+        }
+        
+        .requirement-text {
+            flex: 1;
+        }
+        
+        .requirement-id {
+            font-weight: 600;
+            color: #374151;
+            margin-right: 8px;
+        }
+        
+        .test-progress {
+            background: #e5e7eb;
+            border-radius: 4px;
+            height: 8px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .test-progress-bar {
+            background: #2563eb;
+            height: 100%;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .test-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .summary-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .summary-number {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .summary-label {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .summary-card.success .summary-number {
+            color: #10b981;
+        }
+        
+        .summary-card.error .summary-number {
+            color: #ef4444;
+        }
+        
+        .summary-card.total .summary-number {
+            color: #2563eb;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-runner">
+        <header>
+            <h1>UIコンポーネントテスト実行環境</h1>
+            <p>フォーム操作、候補選択機能、アクセシビリティのテストを実行します。</p>
+        </header>
+
+        <!-- 要件確認セクション -->
+        <section class="test-section">
+            <h2>📋 要件確認</h2>
+            <p>テスト実行前に以下の要件を確認してください：</p>
+            
+            <div class="requirements-checklist">
+                <div class="requirement-item">
+                    <input type="checkbox" id="req-2-3" class="requirement-checkbox">
+                    <label for="req-2-3" class="requirement-text">
+                        <span class="requirement-id">要件2.3:</span>
+                        フォーム機能（入力、バリデーション、エラー表示）が実装されている
+                    </label>
+                </div>
+                <div class="requirement-item">
+                    <input type="checkbox" id="req-7-3" class="requirement-checkbox">
+                    <label for="req-7-3" class="requirement-text">
+                        <span class="requirement-id">要件7.3:</span>
+                        候補履歴と選択機能が実装されている
+                    </label>
+                </div>
+                <div class="requirement-item">
+                    <input type="checkbox" id="req-accessibility" class="requirement-checkbox">
+                    <label for="req-accessibility" class="requirement-text">
+                        <span class="requirement-id">アクセシビリティ:</span>
+                        ARIA属性、キーボードナビゲーション、スクリーンリーダー対応が実装されている
+                    </label>
+                </div>
+                <div class="requirement-item">
+                    <input type="checkbox" id="req-css" class="requirement-checkbox">
+                    <label for="req-css" class="requirement-text">
+                        <span class="requirement-id">スタイル:</span>
+                        main.cssが読み込まれ、UIコンポーネントのスタイルが適用されている
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- テスト実行セクション -->
+        <section class="test-section">
+            <h2>🧪 テスト実行</h2>
+            
+            <div class="test-controls">
+                <button id="run-all-tests" class="test-button primary">
+                    全テストを実行
+                </button>
+                <button id="run-form-tests" class="test-button secondary">
+                    フォーム操作テスト
+                </button>
+                <button id="run-candidate-tests" class="test-button secondary">
+                    候補選択テスト
+                </button>
+                <button id="run-accessibility-tests" class="test-button secondary">
+                    アクセシビリティテスト
+                </button>
+                <button id="clear-output" class="test-button secondary">
+                    出力をクリア
+                </button>
+            </div>
+
+            <div id="test-status" class="test-status hidden">
+                テスト準備中...
+            </div>
+
+            <div class="test-progress hidden" id="test-progress">
+                <div class="test-progress-bar" id="test-progress-bar"></div>
+            </div>
+
+            <div class="test-summary hidden" id="test-summary">
+                <div class="summary-card total">
+                    <div class="summary-number" id="total-tests">0</div>
+                    <div class="summary-label">総テスト数</div>
+                </div>
+                <div class="summary-card success">
+                    <div class="summary-number" id="passed-tests">0</div>
+                    <div class="summary-label">合格</div>
+                </div>
+                <div class="summary-card error">
+                    <div class="summary-number" id="failed-tests">0</div>
+                    <div class="summary-label">失敗</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-number" id="success-rate">0%</div>
+                    <div class="summary-label">成功率</div>
+                </div>
+            </div>
+
+            <div id="test-output" class="test-output hidden"></div>
+        </section>
+
+        <!-- テスト詳細セクション -->
+        <section class="test-section">
+            <h2>📖 テスト詳細</h2>
+            <div class="test-details">
+                <h3>フォーム操作テスト</h3>
+                <ul>
+                    <li>基本的なフォーム入力機能</li>
+                    <li>フィールドバリデーション（日付、金額、支払先、適用）</li>
+                    <li>フィールド更新とデータバインディング</li>
+                    <li>信頼度インジケーターの表示</li>
+                    <li>フォームリセット機能</li>
+                </ul>
+
+                <h3>候補選択機能テスト</h3>
+                <ul>
+                    <li>候補リストの表示と非表示</li>
+                    <li>候補選択によるフィールド値の更新</li>
+                    <li>候補履歴の管理（追加、重複防止）</li>
+                    <li>候補フィルタリング（信頼度、重複除去）</li>
+                </ul>
+
+                <h3>アクセシビリティテスト</h3>
+                <ul>
+                    <li>ARIA属性の適切な設定</li>
+                    <li>キーボードナビゲーション対応</li>
+                    <li>スクリーンリーダー対応（ライブリージョン、ラベル）</li>
+                    <li>フォーカス管理</li>
+                    <li>カラーコントラストと視覚的表示</li>
+                </ul>
+
+                <h3>エラーハンドリングテスト</h3>
+                <ul>
+                    <li>無効なデータの処理</li>
+                    <li>存在しないDOM要素の処理</li>
+                    <li>イベントリスナーのエラー処理</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 使用方法セクション -->
+        <section class="test-section">
+            <h2>📚 使用方法</h2>
+            <div class="usage-instructions">
+                <h3>テスト実行手順</h3>
+                <ol>
+                    <li><strong>要件確認:</strong> 上記の要件確認チェックリストで前提条件を確認</li>
+                    <li><strong>テスト実行:</strong> 「全テストを実行」ボタンをクリック</li>
+                    <li><strong>結果確認:</strong> テスト出力とサマリーで結果を確認</li>
+                    <li><strong>個別テスト:</strong> 必要に応じて個別のテストカテゴリを実行</li>
+                </ol>
+
+                <h3>自動実行</h3>
+                <p>URLパラメータ <code>?run-ui-tests</code> を追加すると、ページ読み込み時に自動でテストが実行されます。</p>
+                <p>例: <code>ui-components-test-runner.html?run-ui-tests</code></p>
+
+                <h3>テスト結果の解釈</h3>
+                <ul>
+                    <li><strong>✅ 合格:</strong> テストが正常に完了し、期待される動作を確認</li>
+                    <li><strong>❌ 失敗:</strong> テストが失敗し、問題が検出された</li>
+                    <li><strong>成功率:</strong> 全テスト中の合格率（90%以上が推奨）</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <!-- テスト用のスタイル -->
+    <style>
+        /* テスト実行中は非表示にする要素 */
+        #ui-test-container {
+            position: absolute !important;
+            left: -9999px !important;
+            top: -9999px !important;
+            visibility: hidden !important;
+        }
+        
+        /* 信頼度インジケーターのスタイル */
+        .confidence-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+        
+        .confidence-indicator.high {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .confidence-indicator.medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .confidence-indicator.low {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .confidence-icon {
+            margin-right: 4px;
+        }
+        
+        /* 候補リストのスタイル */
+        .candidates-list {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            margin-top: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .candidates-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .candidates-clear {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #6b7280;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .candidates-clear:hover {
+            color: #374151;
+        }
+        
+        .candidate-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .candidate-item:last-child {
+            border-bottom: none;
+        }
+        
+        .candidate-item:hover {
+            background: #f9fafb;
+        }
+        
+        .candidate-main {
+            flex: 1;
+        }
+        
+        .candidate-value {
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .candidate-meta {
+            display: flex;
+            gap: 8px;
+            margin-top: 2px;
+            font-size: 12px;
+        }
+        
+        .candidate-confidence {
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        
+        .candidate-confidence.high {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .candidate-confidence.medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .candidate-confidence.low {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .candidate-source {
+            color: #6b7280;
+        }
+        
+        .candidate-action {
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .candidate-action:hover {
+            background: #1d4ed8;
+        }
+        
+        /* フィールドエラーのスタイル */
+        .field-error {
+            color: #dc2626;
+            font-size: 14px;
+            margin-top: 4px;
+            margin-bottom: 0;
+        }
+        
+        .form-input.error {
+            border-color: #dc2626;
+            background-color: #fef2f2;
+        }
+        
+        .form-input.warning {
+            border-color: #f59e0b;
+            background-color: #fffbeb;
+        }
+    </style>
+
+    <script src="ui-components-tests.js"></script>
+    <script>
+        class UITestRunner {
+            constructor() {
+                this.testResults = [];
+                this.isRunning = false;
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                document.getElementById('run-all-tests').addEventListener('click', () => {
+                    this.runAllTests();
+                });
+
+                document.getElementById('run-form-tests').addEventListener('click', () => {
+                    this.runSpecificTests('form');
+                });
+
+                document.getElementById('run-candidate-tests').addEventListener('click', () => {
+                    this.runSpecificTests('candidate');
+                });
+
+                document.getElementById('run-accessibility-tests').addEventListener('click', () => {
+                    this.runSpecificTests('accessibility');
+                });
+
+                document.getElementById('clear-output').addEventListener('click', () => {
+                    this.clearOutput();
+                });
+            }
+
+            async runAllTests() {
+                if (this.isRunning) return;
+
+                this.isRunning = true;
+                this.showStatus('running', 'UIコンポーネントテストを実行中...');
+                this.showProgress(0);
+                this.clearOutput();
+
+                try {
+                    const tester = new UIComponentsTests();
+                    
+                    // テスト実行の監視
+                    const originalAddTestResult = tester.addTestResult.bind(tester);
+                    tester.addTestResult = (name, passed, message) => {
+                        originalAddTestResult(name, passed, message);
+                        this.updateProgress(tester.testResults.length);
+                        this.appendOutput(`${passed ? '✅' : '❌'} ${name}: ${message}`);
+                    };
+
+                    await tester.runAllTests();
+                    
+                    this.testResults = tester.testResults;
+                    this.updateSummary();
+                    this.showStatus('success', 'テスト実行完了');
+                    
+                } catch (error) {
+                    this.showStatus('error', `テスト実行エラー: ${error.message}`);
+                    this.appendOutput(`❌ テスト実行エラー: ${error.message}`);
+                } finally {
+                    this.isRunning = false;
+                    this.hideProgress();
+                }
+            }
+
+            async runSpecificTests(category) {
+                if (this.isRunning) return;
+
+                this.isRunning = true;
+                this.showStatus('running', `${category}テストを実行中...`);
+                this.clearOutput();
+
+                try {
+                    const tester = new UIComponentsTests();
+                    await tester.setupTestEnvironment();
+
+                    // テスト実行の監視
+                    const originalAddTestResult = tester.addTestResult.bind(tester);
+                    tester.addTestResult = (name, passed, message) => {
+                        originalAddTestResult(name, passed, message);
+                        this.appendOutput(`${passed ? '✅' : '❌'} ${name}: ${message}`);
+                    };
+
+                    switch (category) {
+                        case 'form':
+                            await tester.testFormOperations();
+                            break;
+                        case 'candidate':
+                            await tester.testCandidateSelection();
+                            break;
+                        case 'accessibility':
+                            await tester.testAccessibility();
+                            break;
+                    }
+
+                    tester.displayResults();
+                    tester.cleanup();
+                    
+                    this.testResults = tester.testResults;
+                    this.updateSummary();
+                    this.showStatus('success', `${category}テスト完了`);
+                    
+                } catch (error) {
+                    this.showStatus('error', `テスト実行エラー: ${error.message}`);
+                    this.appendOutput(`❌ テスト実行エラー: ${error.message}`);
+                } finally {
+                    this.isRunning = false;
+                }
+            }
+
+            showStatus(type, message) {
+                const statusElement = document.getElementById('test-status');
+                statusElement.className = `test-status ${type}`;
+                statusElement.textContent = message;
+                statusElement.classList.remove('hidden');
+            }
+
+            showProgress(progress) {
+                const progressContainer = document.getElementById('test-progress');
+                const progressBar = document.getElementById('test-progress-bar');
+                
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = `${progress}%`;
+            }
+
+            updateProgress(currentTest) {
+                // 推定テスト数（実際の数は実行時に決まる）
+                const estimatedTotal = 50;
+                const progress = Math.min((currentTest / estimatedTotal) * 100, 100);
+                this.showProgress(progress);
+            }
+
+            hideProgress() {
+                const progressContainer = document.getElementById('test-progress');
+                progressContainer.classList.add('hidden');
+            }
+
+            updateSummary() {
+                const totalTests = this.testResults.length;
+                const passedTests = this.testResults.filter(r => r.passed).length;
+                const failedTests = totalTests - passedTests;
+                const successRate = totalTests > 0 ? (passedTests / totalTests * 100).toFixed(1) : 0;
+
+                document.getElementById('total-tests').textContent = totalTests;
+                document.getElementById('passed-tests').textContent = passedTests;
+                document.getElementById('failed-tests').textContent = failedTests;
+                document.getElementById('success-rate').textContent = `${successRate}%`;
+
+                document.getElementById('test-summary').classList.remove('hidden');
+            }
+
+            appendOutput(message) {
+                const outputElement = document.getElementById('test-output');
+                outputElement.classList.remove('hidden');
+                outputElement.textContent += message + '\n';
+                outputElement.scrollTop = outputElement.scrollHeight;
+            }
+
+            clearOutput() {
+                const outputElement = document.getElementById('test-output');
+                outputElement.textContent = '';
+                outputElement.classList.add('hidden');
+                
+                const summaryElement = document.getElementById('test-summary');
+                summaryElement.classList.add('hidden');
+                
+                this.testResults = [];
+            }
+        }
+
+        // テストランナーの初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            const runner = new UITestRunner();
+            
+            // URLパラメータで自動実行
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('run-ui-tests')) {
+                setTimeout(() => runner.runAllTests(), 1000);
+            }
+        });
+    </script>
+</body>
+</html>

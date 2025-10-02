@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>矩形選択機能テストランナー</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            margin: 0 0 8px 0;
+            color: #1f2937;
+        }
+        
+        .header p {
+            margin: 0;
+            color: #6b7280;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-right: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .button:hover {
+            background: #1d4ed8;
+        }
+        
+        .button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .button.secondary {
+            background: #6b7280;
+        }
+        
+        .button.secondary:hover {
+            background: #4b5563;
+        }
+        
+        .status {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .status h3 {
+            margin: 0 0 12px 0;
+            color: #1f2937;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .status-value {
+            color: #6b7280;
+        }
+        
+        .status-value.success {
+            color: #059669;
+        }
+        
+        .status-value.error {
+            color: #dc2626;
+        }
+        
+        .console-output {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .requirements {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .requirements h3 {
+            margin: 0 0 16px 0;
+            color: #1f2937;
+        }
+        
+        .requirements ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .requirements li {
+            margin-bottom: 8px;
+            color: #374151;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .test-canvas {
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            margin: 12px 0;
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔲 矩形選択機能ユニットテスト</h1>
+            <p>選択精度、ズーム・パン操作、再OCR精度の確認</p>
+        </div>
+
+        <div class="requirements">
+            <h3>📋 テスト対象機能</h3>
+            <ul>
+                <li><strong>選択精度:</strong> 矩形選択の正確性、最小サイズ制限、座標変換の精度</li>
+                <li><strong>ズーム・パン操作:</strong> ズームイン/アウト、パン操作、操作制限の確認</li>
+                <li><strong>再OCR精度:</strong> 選択領域の高解像度リサンプリング、OCR結果の候補追加</li>
+                <li><strong>エラーハンドリング:</strong> 境界外選択、メモリ制限、イベントリスナーのクリーンアップ</li>
+                <li><strong>要件:</strong> 3.1（矩形選択オーバーレイ）、3.2（ズーム・パン機能）、3.3（選択領域の再OCR処理）</li>
+            </ul>
+        </div>
+
+        <div class="controls">
+            <button id="runAllTests" class="button">
+                🚀 全テスト実行
+            </button>
+            <button id="runSelectionTests" class="button secondary">
+                🎯 選択精度テスト
+            </button>
+            <button id="runZoomPanTests" class="button secondary">
+                🔍 ズーム・パンテスト
+            </button>
+            <button id="runReOCRTests" class="button secondary">
+                📝 再OCRテスト
+            </button>
+            <button id="runErrorTests" class="button secondary">
+                ⚠️ エラーハンドリングテスト
+            </button>
+            <button id="clearConsole" class="button secondary">
+                🗑️ コンソールクリア
+            </button>
+        </div>
+
+        <div class="status">
+            <h3>📊 テスト状況</h3>
+            <div class="status-item">
+                <span class="status-label">RectangleSelector</span>
+                <span id="rectangleSelectorStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">テストキャンバス</span>
+                <span id="canvasStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">モックOCRエンジン</span>
+                <span id="mockOCRStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">実行中のテスト</span>
+                <span id="currentTest" class="status-value">なし</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">テスト結果</span>
+                <span id="testResults" class="status-value">未実行</span>
+            </div>
+        </div>
+
+        <div class="console-output" id="consoleOutput">
+            矩形選択機能テストランナーが準備完了しました。
+            「全テスト実行」ボタンをクリックしてテストを開始してください。
+        </div>
+    </div>
+
+    <!-- 必要なライブラリの読み込み -->
+    <script src="../js/rectangle-selector.js"></script>
+    <script src="rectangle-selector-tests.js"></script>
+
+    <script>
+        class TestRunner {
+            constructor() {
+                this.tests = null;
+                this.isRunning = false;
+                this.setupEventListeners();
+                this.checkDependencies();
+                this.setupConsoleCapture();
+            }
+
+            setupEventListeners() {
+                document.getElementById('runAllTests').addEventListener('click', () => this.runAllTests());
+                document.getElementById('runSelectionTests').addEventListener('click', () => this.runSelectionTests());
+                document.getElementById('runZoomPanTests').addEventListener('click', () => this.runZoomPanTests());
+                document.getElementById('runReOCRTests').addEventListener('click', () => this.runReOCRTests());
+                document.getElementById('runErrorTests').addEventListener('click', () => this.runErrorTests());
+                document.getElementById('clearConsole').addEventListener('click', () => this.clearConsole());
+            }
+
+            checkDependencies() {
+                // RectangleSelector の確認
+                if (typeof RectangleSelector !== 'undefined') {
+                    this.updateStatus('rectangleSelectorStatus', 'success', '利用可能');
+                } else {
+                    this.updateStatus('rectangleSelectorStatus', 'error', '未読み込み');
+                }
+
+                // Canvas API の確認
+                try {
+                    const testCanvas = document.createElement('canvas');
+                    const ctx = testCanvas.getContext('2d');
+                    if (ctx) {
+                        this.updateStatus('canvasStatus', 'success', '利用可能');
+                    } else {
+                        this.updateStatus('canvasStatus', 'error', '利用不可');
+                    }
+                } catch (error) {
+                    this.updateStatus('canvasStatus', 'error', 'エラー');
+                }
+
+                // モックOCRエンジンの確認（テスト実行時に作成されるため、ここでは準備完了とする）
+                this.updateStatus('mockOCRStatus', 'success', '準備完了');
+            }
+
+            updateStatus(elementId, type, text) {
+                const element = document.getElementById(elementId);
+                element.textContent = text;
+                element.className = `status-value ${type}`;
+            }
+
+            setupConsoleCapture() {
+                const originalLog = console.log;
+                const originalError = console.error;
+                const originalWarn = console.warn;
+                const consoleOutput = document.getElementById('consoleOutput');
+
+                const addToConsole = (message, type = 'log') => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : 'ℹ️';
+                    consoleOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                };
+
+                console.log = (...args) => {
+                    originalLog.apply(console, args);
+                    addToConsole(args.join(' '), 'log');
+                };
+
+                console.error = (...args) => {
+                    originalError.apply(console, args);
+                    addToConsole(args.join(' '), 'error');
+                };
+
+                console.warn = (...args) => {
+                    originalWarn.apply(console, args);
+                    addToConsole(args.join(' '), 'warn');
+                };
+            }
+
+            clearConsole() {
+                document.getElementById('consoleOutput').textContent = '';
+            }
+
+            setRunning(isRunning, testName = '') {
+                this.isRunning = isRunning;
+                const buttons = document.querySelectorAll('.button');
+                buttons.forEach(button => {
+                    if (button.id !== 'clearConsole') {
+                        button.disabled = isRunning;
+                    }
+                });
+
+                if (isRunning) {
+                    document.getElementById('currentTest').innerHTML = `<span class="loading"></span>${testName}`;
+                } else {
+                    document.getElementById('currentTest').textContent = 'なし';
+                }
+            }
+
+            async runAllTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, '全テスト実行中');
+                
+                try {
+                    this.tests = new RectangleSelectorTests();
+                    await this.tests.runAllTests();
+                    
+                    const passedTests = this.tests.testResults.filter(result => result.passed).length;
+                    const totalTests = this.tests.testResults.length;
+                    
+                    this.updateStatus('testResults', 
+                        passedTests === totalTests ? 'success' : 'error',
+                        `${passedTests}/${totalTests} 合格`
+                    );
+                    
+                } catch (error) {
+                    console.error('テスト実行エラー:', error);
+                    this.updateStatus('testResults', 'error', 'エラー発生');
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runSelectionTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, '選択精度テスト実行中');
+                
+                try {
+                    this.tests = new RectangleSelectorTests();
+                    await this.tests.setupTestEnvironment();
+                    await this.tests.testSelectionAccuracy();
+                    
+                    console.log('選択精度テストが完了しました');
+                } catch (error) {
+                    console.error('選択精度テスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runZoomPanTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, 'ズーム・パンテスト実行中');
+                
+                try {
+                    this.tests = new RectangleSelectorTests();
+                    await this.tests.setupTestEnvironment();
+                    await this.tests.testZoomPanOperations();
+                    
+                    console.log('ズーム・パンテストが完了しました');
+                } catch (error) {
+                    console.error('ズーム・パンテスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runReOCRTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, '再OCRテスト実行中');
+                
+                try {
+                    this.tests = new RectangleSelectorTests();
+                    await this.tests.setupTestEnvironment();
+                    await this.tests.testReOCRAccuracy();
+                    
+                    console.log('再OCRテストが完了しました');
+                } catch (error) {
+                    console.error('再OCRテスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runErrorTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, 'エラーハンドリングテスト実行中');
+                
+                try {
+                    this.tests = new RectangleSelectorTests();
+                    await this.tests.setupTestEnvironment();
+                    await this.tests.testErrorHandling();
+                    
+                    console.log('エラーハンドリングテストが完了しました');
+                } catch (error) {
+                    console.error('エラーハンドリングテスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+        }
+
+        // ページ読み込み完了時にテストランナーを初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            window.testRunner = new TestRunner();
+            console.log('矩形選択機能テストランナーが初期化されました');
+        });
+    </script>
+</body>
+</html>

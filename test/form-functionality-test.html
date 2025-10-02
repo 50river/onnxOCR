@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>フォーム機能テスト</title>
+    <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+    <div id="app">
+        <header class="app-header">
+            <h1>フォーム機能テスト</h1>
+            <div class="status-indicator" id="status-indicator">
+                <span class="status-text">テスト準備完了</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="form-section">
+                <h2>抽出結果フォーム</h2>
+                <form id="receipt-form" class="receipt-form">
+                    <div class="form-group">
+                        <label for="date-field" class="form-label">
+                            日付
+                            <span class="confidence-indicator" id="date-confidence"></span>
+                        </label>
+                        <input type="text" id="date-field" name="date" class="form-input" placeholder="YYYY/MM/DD">
+                        <div class="candidates-list" id="date-candidates" style="display: none;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="payee-field" class="form-label">
+                            支払先
+                            <span class="confidence-indicator" id="payee-confidence"></span>
+                        </label>
+                        <input type="text" id="payee-field" name="payee" class="form-input" placeholder="支払先名">
+                        <div class="candidates-list" id="payee-candidates" style="display: none;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="amount-field" class="form-label">
+                            金額
+                            <span class="confidence-indicator" id="amount-confidence"></span>
+                        </label>
+                        <input type="number" id="amount-field" name="amount" class="form-input" placeholder="0">
+                        <div class="candidates-list" id="amount-candidates" style="display: none;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="purpose-field" class="form-label">
+                            適用
+                            <span class="confidence-indicator" id="purpose-confidence"></span>
+                        </label>
+                        <input type="text" id="purpose-field" name="purpose" class="form-input" placeholder="利用内容">
+                        <div class="candidates-list" id="purpose-candidates" style="display: none;"></div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" id="test-populate" class="action-button primary">テストデータ入力</button>
+                        <button type="button" id="test-low-confidence" class="action-button secondary">低信頼度テスト</button>
+                        <button type="button" id="test-progress" class="action-button secondary">プログレステスト</button>
+                    </div>
+                </form>
+            </section>
+        </main>
+
+        <div class="progress-overlay" id="progress-overlay" style="display: none;">
+            <div class="progress-content">
+                <div class="progress-spinner"></div>
+                <p class="progress-text" id="progress-text">処理中...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/field-extractor.js"></script>
+    <script>
+        // テスト用の簡易アプリクラス
+        class FormTestApp {
+            constructor() {
+                this.elements = {};
+                this.candidateHistory = {
+                    date: [],
+                    payee: [],
+                    amount: [],
+                    purpose: []
+                };
+                this.initializeElements();
+                this.bindEvents();
+            }
+
+            initializeElements() {
+                this.elements = {
+                    dateField: document.getElementById('date-field'),
+                    payeeField: document.getElementById('payee-field'),
+                    amountField: document.getElementById('amount-field'),
+                    purposeField: document.getElementById('purpose-field'),
+                    
+                    dateConfidence: document.getElementById('date-confidence'),
+                    payeeConfidence: document.getElementById('payee-confidence'),
+                    amountConfidence: document.getElementById('amount-confidence'),
+                    purposeConfidence: document.getElementById('purpose-confidence'),
+                    
+                    dateCandidates: document.getElementById('date-candidates'),
+                    payeeCandidates: document.getElementById('payee-candidates'),
+                    amountCandidates: document.getElementById('amount-candidates'),
+                    purposeCandidates: document.getElementById('purpose-candidates'),
+                    
+                    progressOverlay: document.getElementById('progress-overlay'),
+                    progressText: document.getElementById('progress-text'),
+                    progressFill: document.getElementById('progress-fill'),
+                    
+                    statusIndicator: document.getElementById('status-indicator')
+                };
+            }
+
+            bindEvents() {
+                document.getElementById('test-populate').addEventListener('click', () => {
+                    this.testPopulateForm();
+                });
+                
+                document.getElementById('test-low-confidence').addEventListener('click', () => {
+                    this.testLowConfidence();
+                });
+                
+                document.getElementById('test-progress').addEventListener('click', () => {
+                    this.testProgress();
+                });
+                
+                this.bindFormValidation();
+            }
+
+            testPopulateForm() {
+                const sampleData = {
+                    date: { 
+                        value: '2024/03/15', 
+                        confidence: 0.95,
+                        candidates: [
+                            { value: '2024/03/15', confidence: 0.95, originalText: '2024年3月15日', source: 'OCR' },
+                            { value: '2024/03/14', confidence: 0.82, originalText: '令和6年3月14日', source: 'OCR' },
+                            { value: '2024/03/16', confidence: 0.71, originalText: '3/16', source: '範囲選択' }
+                        ]
+                    },
+                    payee: { 
+                        value: '株式会社テスト', 
+                        confidence: 0.88,
+                        candidates: [
+                            { value: '株式会社テスト', confidence: 0.88, originalText: '株式会社テスト', source: 'OCR' },
+                            { value: 'テスト商店', confidence: 0.75, originalText: 'テスト商店', source: 'OCR' }
+                        ]
+                    },
+                    amount: { 
+                        value: '1500', 
+                        confidence: 0.92,
+                        candidates: [
+                            { value: '1500', confidence: 0.92, originalText: '¥1,500', source: 'OCR' },
+                            { value: '1580', confidence: 0.78, originalText: '1580円', source: '範囲選択' }
+                        ]
+                    },
+                    purpose: { 
+                        value: '会議費', 
+                        confidence: 0.75,
+                        candidates: [
+                            { value: '会議費', confidence: 0.75, originalText: '会議・打合せ', source: 'OCR' },
+                            { value: '交通費', confidence: 0.68, originalText: '交通費', source: 'OCR' }
+                        ]
+                    }
+                };
+
+                Object.entries(sampleData).forEach(([field, data]) => {
+                    this.updateField(field, data.value, data.confidence, data.candidates);
+                });
+                
+                this.updateStatus('テストデータを入力しました');
+            }
+
+            testLowConfidence() {
+                this.updateField('amount', '150', 0.45, [
+                    { value: '150', confidence: 0.45, originalText: '150?', source: 'OCR' },
+                    { value: '1500', confidence: 0.35, originalText: '1500', source: 'OCR' }
+                ]);
+                this.updateStatus('低信頼度データをテストしました');
+            }
+
+            async testProgress() {
+                const steps = [
+                    { text: 'テスト開始...', description: 'プログレス機能をテストしています' },
+                    { text: 'データ処理中...', description: 'サンプルデータを処理しています' },
+                    { text: '検証中...', description: '結果を検証しています' }
+                ];
+
+                for (let i = 0; i < steps.length; i++) {
+                    this.showSteppedProgress(steps, i);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                }
+
+                this.showProgressSuccess('テスト完了!', { autoHide: 2000 });
+            }
+
+            // 以下、app.jsから必要なメソッドをコピー
+            updateField(fieldName, value, confidence, candidates = []) {
+                const field = this.elements[`${fieldName}Field`];
+                const confidenceIndicator = this.elements[`${fieldName}Confidence`];
+                
+                if (field) {
+                    field.value = value;
+                    field.classList.remove('warning', 'error');
+                    if (confidence < 0.5) {
+                        field.classList.add('error');
+                    } else if (confidence < 0.8) {
+                        field.classList.add('warning');
+                    }
+                }
+                
+                if (confidenceIndicator) {
+                    this.updateConfidenceIndicator(confidenceIndicator, confidence);
+                }
+                
+                if (candidates.length > 0) {
+                    this.updateCandidatesList(fieldName, candidates);
+                }
+            }
+
+            updateConfidenceIndicator(indicator, confidence) {
+                indicator.className = 'confidence-indicator';
+                
+                if (confidence >= 0.9) {
+                    indicator.classList.add('high');
+                    indicator.innerHTML = '<span class="confidence-icon">✓</span>高';
+                    indicator.title = `信頼度: ${Math.round(confidence * 100)}% - 抽出結果の信頼性が高いです`;
+                } else if (confidence >= 0.7) {
+                    indicator.classList.add('medium');
+                    indicator.innerHTML = '<span class="confidence-icon">!</span>中';
+                    indicator.title = `信頼度: ${Math.round(confidence * 100)}% - 抽出結果を確認してください`;
+                } else if (confidence > 0) {
+                    indicator.classList.add('low');
+                    indicator.innerHTML = '<span class="confidence-icon">⚠</span>低';
+                    indicator.title = `信頼度: ${Math.round(confidence * 100)}% - 抽出結果の確認が必要です`;
+                    this.showLowConfidenceAlert(indicator);
+                }
+            }
+
+            showLowConfidenceAlert(indicator) {
+                const existingAlert = indicator.parentNode.querySelector('.confidence-alert');
+                if (existingAlert) existingAlert.remove();
+
+                const alert = document.createElement('div');
+                alert.className = 'confidence-alert';
+                alert.innerHTML = `
+                    <div class="alert-content">
+                        <span class="alert-icon">⚠</span>
+                        <div class="alert-text">
+                            <strong>確認が必要です</strong>
+                            <p>抽出結果の信頼度が低いため、内容を確認してください。</p>
+                        </div>
+                        <button type="button" class="alert-close">×</button>
+                    </div>
+                `;
+
+                const formGroup = indicator.closest('.form-group');
+                if (formGroup) {
+                    formGroup.appendChild(alert);
+                    
+                    alert.querySelector('.alert-close').addEventListener('click', () => {
+                        alert.remove();
+                    });
+                }
+            }
+
+            updateCandidatesList(fieldName, candidates) {
+                const candidatesContainer = this.elements[`${fieldName}Candidates`];
+                if (!candidatesContainer || candidates.length === 0) return;
+
+                const candidatesHTML = `
+                    <div class="candidates-header">
+                        <span class="candidates-title">候補 (${candidates.length})</span>
+                        <button type="button" class="candidates-clear">×</button>
+                    </div>
+                    <div class="candidates-content">
+                        ${candidates.map(candidate => `
+                            <div class="candidate-item" data-value="${this.escapeHtml(candidate.value)}">
+                                <div class="candidate-main">
+                                    <span class="candidate-value">${this.escapeHtml(candidate.value)}</span>
+                                    <div class="candidate-meta">
+                                        <span class="candidate-confidence ${this.getConfidenceClass(candidate.confidence)}">${Math.round(candidate.confidence * 100)}%</span>
+                                        <span class="candidate-source">${candidate.source}</span>
+                                    </div>
+                                </div>
+                                <div class="candidate-actions">
+                                    <button type="button" class="candidate-action" data-action="select">✓</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                candidatesContainer.innerHTML = candidatesHTML;
+                candidatesContainer.style.display = 'block';
+
+                // イベントリスナー
+                candidatesContainer.querySelector('.candidates-clear').addEventListener('click', () => {
+                    candidatesContainer.style.display = 'none';
+                });
+
+                candidatesContainer.querySelectorAll('.candidate-action[data-action="select"]').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const item = e.target.closest('.candidate-item');
+                        const value = item.dataset.value;
+                        const field = this.elements[`${fieldName}Field`];
+                        if (field) {
+                            field.value = value;
+                            candidatesContainer.style.display = 'none';
+                        }
+                    });
+                });
+            }
+
+            getConfidenceClass(confidence) {
+                if (confidence >= 0.8) return 'high';
+                if (confidence >= 0.6) return 'medium';
+                return 'low';
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            bindFormValidation() {
+                const fields = ['date', 'payee', 'amount', 'purpose'];
+                fields.forEach(fieldName => {
+                    const field = this.elements[`${fieldName}Field`];
+                    if (field) {
+                        field.addEventListener('blur', (e) => {
+                            this.validateField(fieldName, e.target.value);
+                        });
+                    }
+                });
+            }
+
+            validateField(fieldName, value) {
+                // 簡単なバリデーション
+                const field = this.elements[`${fieldName}Field`];
+                if (!field) return;
+
+                let isValid = true;
+                if (fieldName === 'date') {
+                    isValid = /^\d{4}\/\d{2}\/\d{2}$/.test(value);
+                } else if (fieldName === 'amount') {
+                    isValid = !isNaN(parseInt(value)) && parseInt(value) >= 0;
+                } else {
+                    isValid = value.trim().length > 0;
+                }
+
+                field.classList.toggle('error', !isValid);
+            }
+
+            showSteppedProgress(steps, currentStep) {
+                const progress = ((currentStep + 1) / steps.length) * 100;
+                const currentStepData = steps[currentStep];
+                
+                this.showProgress(currentStepData.text, progress, {
+                    details: steps.map((step, index) => ({
+                        ...step,
+                        completed: index < currentStep,
+                        active: index === currentStep
+                    }))
+                });
+            }
+
+            showProgress(text, progress, options = {}) {
+                this.elements.progressOverlay.style.display = 'flex';
+                this.elements.progressText.textContent = text;
+                this.elements.progressFill.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+                
+                if (options.details && Array.isArray(options.details)) {
+                    let detailsElement = this.elements.progressOverlay.querySelector('.progress-details');
+                    if (!detailsElement) {
+                        detailsElement = document.createElement('div');
+                        detailsElement.className = 'progress-details';
+                        this.elements.progressOverlay.querySelector('.progress-content').appendChild(detailsElement);
+                    }
+                    
+                    detailsElement.innerHTML = `
+                        <ul class="progress-steps">
+                            ${options.details.map(step => `
+                                <li class="progress-step ${step.completed ? 'completed' : step.active ? 'active' : ''}">
+                                    <span class="step-icon">${step.completed ? '✓' : step.active ? '⏳' : '○'}</span>
+                                    <span class="step-text">${step.text}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    `;
+                }
+            }
+
+            showProgressSuccess(text, options = {}) {
+                this.showProgress(text, 100);
+                this.elements.progressFill.style.backgroundColor = '#10b981';
+                
+                if (options.autoHide) {
+                    setTimeout(() => {
+                        this.hideProgress();
+                    }, options.autoHide);
+                }
+            }
+
+            hideProgress() {
+                this.elements.progressOverlay.style.display = 'none';
+                const detailsElement = this.elements.progressOverlay.querySelector('.progress-details');
+                if (detailsElement) detailsElement.remove();
+                this.elements.progressFill.style.backgroundColor = '#2563eb';
+            }
+
+            updateStatus(text) {
+                const statusText = this.elements.statusIndicator.querySelector('.status-text');
+                if (statusText) {
+                    statusText.textContent = text;
+                }
+            }
+        }
+
+        // テストアプリを初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            new FormTestApp();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>エラーハンドリングテスト</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <style>
+        body {
+            padding: 2rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+        }
+        .test-button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            margin: 0.25rem;
+        }
+        .test-button:hover {
+            background: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+    <h1>エラーハンドリングシステムテスト</h1>
+    
+    <div class="test-section">
+        <h2>権限エラーテスト</h2>
+        <button class="test-button" onclick="testCameraError()">カメラエラーをテスト</button>
+        <button class="test-button" onclick="testPermissionError()">権限拒否エラーをテスト</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>リソースエラーテスト</h2>
+        <button class="test-button" onclick="testMemoryError()">メモリ不足エラーをテスト</button>
+        <button class="test-button" onclick="testStorageError()">ストレージ不足エラーをテスト</button>
+        <button class="test-button" onclick="testTimeoutError()">タイムアウトエラーをテスト</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>ファイルエラーテスト</h2>
+        <button class="test-button" onclick="testFileError()">ファイルエラーをテスト</button>
+        <button class="test-button" onclick="testNetworkError()">ネットワークエラーをテスト</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>包括的テスト</h2>
+        <button class="test-button" onclick="runAllErrorTests()">全エラーハンドリングテストを実行</button>
+        <button class="test-button" onclick="runSpecificTest('classification')">エラー分類テスト</button>
+        <button class="test-button" onclick="runSpecificTest('permission')">権限エラーテスト</button>
+        <button class="test-button" onclick="runSpecificTest('resource')">リソースエラーテスト</button>
+        <button class="test-button" onclick="runSpecificTest('fallback')">フォールバック機能テスト</button>
+        <button class="test-button" onclick="runSpecificTest('usability')">ユーザビリティテスト</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>システム情報</h2>
+        <button class="test-button" onclick="showResourceInfo()">リソース情報を表示</button>
+        <button class="test-button" onclick="showRecoveryStats()">復旧統計を表示</button>
+        <button class="test-button" onclick="clearErrorLogs()">エラーログをクリア</button>
+    </div>
+    
+    <div id="info-display" style="margin-top: 2rem; padding: 1rem; background: #f8fafc; border-radius: 0.5rem; display: none;">
+        <h3>システム情報</h3>
+        <pre id="info-content"></pre>
+    </div>
+
+    <!-- エラーハンドリングスクリプト -->
+    <script src="../js/error-recovery.js"></script>
+    <script src="../js/error-handler.js"></script>
+    <script src="../js/error-display.js"></script>
+    <script src="../js/resource-monitor.js"></script>
+    <script src="error-handling-tests.js"></script>
+    
+    <script>
+        // エラーハンドリングシステムの初期化
+        const errorHandler = new ErrorHandler();
+        const errorDisplay = new ErrorDisplay();
+        const resourceMonitor = new ResourceMonitor();
+        
+        // テスト関数
+        async function testCameraError() {
+            const error = new Error('カメラへのアクセスが拒否されました');
+            error.name = 'NotAllowedError';
+            
+            const errorResult = await errorHandler.handleError(error, { 
+                operation: 'camera',
+                permissionState: 'denied'
+            });
+            
+            errorDisplay.show(errorResult, () => {
+                console.log('カメラエラーの再試行');
+            });
+        }
+        
+        async function testPermissionError() {
+            const error = new Error('権限が拒否されました');
+            error.name = 'NotAllowedError';
+            
+            const errorResult = await errorHandler.handleError(error, { 
+                operation: 'permission',
+                type: 'storage'
+            });
+            
+            errorDisplay.show(errorResult);
+        }
+        
+        async function testMemoryError() {
+            const error = new Error('メモリが不足しています');
+            error.name = 'RangeError';
+            
+            const errorResult = await errorHandler.handleError(error, { 
+                operation: 'ocr',
+                memoryUsage: { used: 900000000, limit: 1000000000 }
+            });
+            
+            errorDisplay.show(errorResult, () => {
+                console.log('メモリエラーの再試行');
+            });
+        }
+        
+        async function testStorageError() {
+            const error = new Error('ストレージ容量が不足しています');
+            error.name = 'QuotaExceededError';
+            
+            const errorResult = await errorHandler.handleError(error, { 
+                operation: 'storage',
+                requiredSize: 50000000
+            });
+            
+            errorDisplay.show(errorResult);
+        }
+        
+        async function testTimeoutError() {
+            const error = new Error('処理がタイムアウトしました');
+            error.name = 'TimeoutError';
+            
+            const errorResult = await errorHandler.handleError(error, { 
+                operation: 'ocr',
+                timeout: true,
+                duration: 30000
+            });
+            
+            errorDisplay.show(errorResult, () => {
+                console.log('タイムアウトエラーの再試行');
+            });
+        }
+        
+        async function testFileError() {
+            const error = new Error('サポートされていないファイル形式です');
+            error.name = 'TypeError';
+            
+            const errorResult = await errorHandler.handleError(error, { 
+                operation: 'file',
+                fileType: 'image/bmp',
+                fileSize: 5000000
+            });
+            
+            errorDisplay.show(errorResult);
+        }
+        
+        async function testNetworkError() {
+            const error = new Error('ネットワーク接続に失敗しました');
+            error.name = 'NetworkError';
+            
+            const errorResult = await errorHandler.handleError(error, { 
+                operation: 'network',
+                url: 'https://example.com/api'
+            });
+            
+            errorDisplay.show(errorResult);
+        }
+        
+        function showResourceInfo() {
+            const info = resourceMonitor.getResourceInfo();
+            document.getElementById('info-content').textContent = JSON.stringify(info, null, 2);
+            document.getElementById('info-display').style.display = 'block';
+        }
+        
+        function showRecoveryStats() {
+            const stats = errorHandler.errorRecovery.generateRecoveryReport();
+            document.getElementById('info-content').textContent = stats;
+            document.getElementById('info-display').style.display = 'block';
+        }
+        
+        function clearErrorLogs() {
+            errorHandler.clearErrorLogs();
+            errorHandler.errorRecovery.clearRecoveryHistory();
+            alert('エラーログと復旧履歴をクリアしました');
+        }
+        
+        // グローバルエラーハンドラーのテスト
+        window.addEventListener('error', async (event) => {
+            const errorResult = await errorHandler.handleError(event.error, { 
+                type: 'javascript_error',
+                filename: event.filename,
+                lineno: event.lineno
+            });
+            errorDisplay.show(errorResult);
+        });
+        
+        // 包括的テスト関数
+        async function runAllErrorTests() {
+            console.log('🧪 包括的エラーハンドリングテストを開始します...');
+            const tests = new ErrorHandlingTests();
+            const results = await tests.runAllTests();
+            
+            alert(`テスト完了!\n成功: ${results.passedTests}/${results.totalTests} (${results.successRate}%)`);
+        }
+        
+        async function runSpecificTest(testType) {
+            console.log(`🎯 ${testType} テストを実行中...`);
+            const tests = new ErrorHandlingTests();
+            await tests.runSpecificTest(testType);
+        }
+        
+        console.log('エラーハンドリングテストページが読み込まれました');
+        console.log('各ボタンをクリックして異なるエラータイプをテストできます');
+        console.log('包括的テストを実行するには「全エラーハンドリングテストを実行」ボタンをクリックしてください');
+    </script>
+</body>
+</html>

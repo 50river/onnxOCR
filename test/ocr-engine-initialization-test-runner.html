@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCRエンジン初期化テストランナー</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            margin: 0 0 8px 0;
+            color: #1f2937;
+        }
+        
+        .header p {
+            margin: 0;
+            color: #6b7280;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .button {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-right: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .button:hover {
+            background: #6d28d9;
+        }
+        
+        .button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .button.secondary {
+            background: #6b7280;
+        }
+        
+        .button.secondary:hover {
+            background: #4b5563;
+        }
+        
+        .status {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .status h3 {
+            margin: 0 0 12px 0;
+            color: #1f2937;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .status-value {
+            color: #6b7280;
+        }
+        
+        .status-value.success {
+            color: #059669;
+        }
+        
+        .status-value.error {
+            color: #dc2626;
+        }
+        
+        .status-value.warning {
+            color: #d97706;
+        }
+        
+        .console-output {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .requirements {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .requirements h3 {
+            margin: 0 0 16px 0;
+            color: #1f2937;
+        }
+        
+        .requirements ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .requirements li {
+            margin-bottom: 8px;
+            color: #374151;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #7c3aed;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 24px;
+        }
+
+        .warning-box h4 {
+            margin: 0 0 8px 0;
+            color: #92400e;
+        }
+
+        .warning-box p {
+            margin: 0;
+            color: #78350f;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 OCRエンジン初期化テスト</h1>
+            <p>各バックエンドの動作確認、モデルロードの成功/失敗テスト、フォールバック機能のテスト</p>
+        </div>
+
+        <div class="warning-box">
+            <h4>⚠️ 注意事項</h4>
+            <p>このテストはモック環境で実行されます。実際のONNX Runtime WebやTesseract.jsライブラリは必要ありません。</p>
+        </div>
+
+        <div class="requirements">
+            <h3>📋 テスト対象機能</h3>
+            <ul>
+                <li><strong>バックエンド検出:</strong> WebGPU、WebGL、WASMの利用可能性確認</li>
+                <li><strong>モデルロード:</strong> 検出、認識、角度分類モデルの読み込み処理</li>
+                <li><strong>フォールバック:</strong> ONNX失敗時のTesseract.js自動切り替え</li>
+                <li><strong>エラーハンドリング:</strong> 404エラー、ネットワークエラー、不正ファイルの処理</li>
+                <li><strong>要件:</strong> 7.2（バックエンド自動選択）、8.4（フォールバック機能とエラーハンドリング）</li>
+            </ul>
+        </div>
+
+        <div class="controls">
+            <button id="runAllTests" class="button">
+                🚀 全テスト実行
+            </button>
+            <button id="runBackendTests" class="button secondary">
+                🔧 バックエンドテスト
+            </button>
+            <button id="runModelTests" class="button secondary">
+                📦 モデルロードテスト
+            </button>
+            <button id="runFallbackTests" class="button secondary">
+                🔄 フォールバックテスト
+            </button>
+            <button id="runErrorTests" class="button secondary">
+                ⚠️ エラーハンドリングテスト
+            </button>
+            <button id="clearConsole" class="button secondary">
+                🗑️ コンソールクリア
+            </button>
+        </div>
+
+        <div class="status">
+            <h3>📊 テスト状況</h3>
+            <div class="status-item">
+                <span class="status-label">OCREngine</span>
+                <span id="ocrEngineStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">WebGPU</span>
+                <span id="webgpuStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">WebGL</span>
+                <span id="webglStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">WebAssembly</span>
+                <span id="wasmStatus" class="status-value">未確認</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">実行中のテスト</span>
+                <span id="currentTest" class="status-value">なし</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">テスト結果</span>
+                <span id="testResults" class="status-value">未実行</span>
+            </div>
+        </div>
+
+        <div class="console-output" id="consoleOutput">
+            OCRエンジン初期化テストランナーが準備完了しました。
+            「全テスト実行」ボタンをクリックしてテストを開始してください。
+        </div>
+    </div>
+
+    <!-- 必要なライブラリの読み込み -->
+    <script src="../js/ocr-engine.js"></script>
+    <script src="ocr-engine-initialization-tests.js"></script>
+
+    <script>
+        class OCRTestRunner {
+            constructor() {
+                this.tests = null;
+                this.isRunning = false;
+                this.setupEventListeners();
+                this.checkDependencies();
+                this.setupConsoleCapture();
+            }
+
+            setupEventListeners() {
+                document.getElementById('runAllTests').addEventListener('click', () => this.runAllTests());
+                document.getElementById('runBackendTests').addEventListener('click', () => this.runBackendTests());
+                document.getElementById('runModelTests').addEventListener('click', () => this.runModelTests());
+                document.getElementById('runFallbackTests').addEventListener('click', () => this.runFallbackTests());
+                document.getElementById('runErrorTests').addEventListener('click', () => this.runErrorTests());
+                document.getElementById('clearConsole').addEventListener('click', () => this.clearConsole());
+            }
+
+            checkDependencies() {
+                // OCREngine の確認
+                if (typeof OCREngine !== 'undefined') {
+                    this.updateStatus('ocrEngineStatus', 'success', '利用可能');
+                } else {
+                    this.updateStatus('ocrEngineStatus', 'error', '未読み込み');
+                }
+
+                // WebGPU の確認
+                if (navigator.gpu) {
+                    this.updateStatus('webgpuStatus', 'success', '利用可能');
+                } else {
+                    this.updateStatus('webgpuStatus', 'warning', '未サポート');
+                }
+
+                // WebGL の確認
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+                if (gl) {
+                    this.updateStatus('webglStatus', 'success', `WebGL${gl instanceof WebGL2RenderingContext ? '2' : ''}`);
+                } else {
+                    this.updateStatus('webglStatus', 'error', '未サポート');
+                }
+
+                // WebAssembly の確認
+                if (typeof WebAssembly !== 'undefined') {
+                    this.updateStatus('wasmStatus', 'success', '利用可能');
+                } else {
+                    this.updateStatus('wasmStatus', 'error', '未サポート');
+                }
+            }
+
+            updateStatus(elementId, type, text) {
+                const element = document.getElementById(elementId);
+                element.textContent = text;
+                element.className = `status-value ${type}`;
+            }
+
+            setupConsoleCapture() {
+                const originalLog = console.log;
+                const originalError = console.error;
+                const originalWarn = console.warn;
+                const consoleOutput = document.getElementById('consoleOutput');
+
+                const addToConsole = (message, type = 'log') => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    const prefix = type === 'error' ? '❌' : type === 'warn' ? '⚠️' : 'ℹ️';
+                    consoleOutput.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                };
+
+                console.log = (...args) => {
+                    originalLog.apply(console, args);
+                    addToConsole(args.join(' '), 'log');
+                };
+
+                console.error = (...args) => {
+                    originalError.apply(console, args);
+                    addToConsole(args.join(' '), 'error');
+                };
+
+                console.warn = (...args) => {
+                    originalWarn.apply(console, args);
+                    addToConsole(args.join(' '), 'warn');
+                };
+            }
+
+            clearConsole() {
+                document.getElementById('consoleOutput').textContent = '';
+            }
+
+            setRunning(isRunning, testName = '') {
+                this.isRunning = isRunning;
+                const buttons = document.querySelectorAll('.button');
+                buttons.forEach(button => {
+                    if (button.id !== 'clearConsole') {
+                        button.disabled = isRunning;
+                    }
+                });
+
+                if (isRunning) {
+                    document.getElementById('currentTest').innerHTML = `<span class="loading"></span>${testName}`;
+                } else {
+                    document.getElementById('currentTest').textContent = 'なし';
+                }
+            }
+
+            async runAllTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, '全テスト実行中');
+                
+                try {
+                    this.tests = new OCREngineInitializationTests();
+                    await this.tests.runAllTests();
+                    
+                    const passedTests = this.tests.testResults.filter(result => result.passed).length;
+                    const totalTests = this.tests.testResults.length;
+                    
+                    this.updateStatus('testResults', 
+                        passedTests === totalTests ? 'success' : 'error',
+                        `${passedTests}/${totalTests} 合格`
+                    );
+                    
+                } catch (error) {
+                    console.error('テスト実行エラー:', error);
+                    this.updateStatus('testResults', 'error', 'エラー発生');
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runBackendTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, 'バックエンドテスト実行中');
+                
+                try {
+                    this.tests = new OCREngineInitializationTests();
+                    await this.tests.setupTestEnvironment();
+                    await this.tests.testBackendAvailability();
+                    
+                    console.log('バックエンドテストが完了しました');
+                } catch (error) {
+                    console.error('バックエンドテスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runModelTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, 'モデルロードテスト実行中');
+                
+                try {
+                    this.tests = new OCREngineInitializationTests();
+                    await this.tests.setupTestEnvironment();
+                    await this.tests.testModelLoadingSuccess();
+                    await this.tests.testModelLoadingFailure();
+                    
+                    console.log('モデルロードテストが完了しました');
+                } catch (error) {
+                    console.error('モデルロードテスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runFallbackTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, 'フォールバックテスト実行中');
+                
+                try {
+                    this.tests = new OCREngineInitializationTests();
+                    await this.tests.setupTestEnvironment();
+                    await this.tests.testFallbackFunctionality();
+                    
+                    console.log('フォールバックテストが完了しました');
+                } catch (error) {
+                    console.error('フォールバックテスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+
+            async runErrorTests() {
+                if (this.isRunning) return;
+
+                this.setRunning(true, 'エラーハンドリングテスト実行中');
+                
+                try {
+                    this.tests = new OCREngineInitializationTests();
+                    await this.tests.setupTestEnvironment();
+                    await this.tests.testErrorRecovery();
+                    
+                    console.log('エラーハンドリングテストが完了しました');
+                } catch (error) {
+                    console.error('エラーハンドリングテスト実行エラー:', error);
+                } finally {
+                    this.setRunning(false);
+                }
+            }
+        }
+
+        // ページ読み込み完了時にテストランナーを初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            window.ocrTestRunner = new OCRTestRunner();
+            console.log('OCRエンジン初期化テストランナーが初期化されました');
+        });
+    </script>
+</body>
+</html>

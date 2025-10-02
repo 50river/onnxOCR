@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ストレージ機能テスト - 領収書OCRアプリ</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+        }
+
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .test-controls {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .test-controls h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .test-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            min-width: 150px;
+        }
+
+        .test-button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .test-button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .test-button.secondary {
+            background: #718096;
+        }
+
+        .test-button.secondary:hover {
+            background: #4a5568;
+        }
+
+        .test-button.danger {
+            background: #e53e3e;
+        }
+
+        .test-button.danger:hover {
+            background: #c53030;
+        }
+
+        .progress-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        .results-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .results-section h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .test-results {
+            margin-top: 30px;
+        }
+
+        .test-category {
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .category-header {
+            background: #f7fafc;
+            padding: 15px 20px;
+            font-weight: 600;
+            color: #2d3748;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .test-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .test-item:last-child {
+            border-bottom: none;
+        }
+
+        .test-name {
+            font-weight: 500;
+            color: #2d3748;
+        }
+
+        .test-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-icon {
+            font-size: 1.2em;
+        }
+
+        .test-details {
+            color: #718096;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .success-rate {
+            font-size: 1.1em;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .success-rate.warning {
+            background: #fffbeb;
+            color: #744210;
+            border-color: #f6e05e;
+        }
+
+        .success-rate.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border-color: #fc8181;
+        }
+
+        .console-output {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+
+        .requirements-info {
+            background: #ebf8ff;
+            border: 1px solid #90cdf4;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .requirements-info h3 {
+            margin-top: 0;
+            color: #2b6cb0;
+        }
+
+        .requirements-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .requirements-list li {
+            padding: 5px 0;
+            color: #2c5282;
+        }
+
+        .requirements-list li:before {
+            content: "✓ ";
+            color: #38a169;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .test-button {
+                width: 100%;
+            }
+            
+            .summary-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗄️ ストレージ機能テスト</h1>
+        <p>IndexedDB、エクスポート機能、上限管理の包括的テスト</p>
+    </div>
+
+    <div class="requirements-info">
+        <h3>📋 テスト対象要件</h3>
+        <ul class="requirements-list">
+            <li><strong>要件 5.1:</strong> JSON・CSV形式でのエクスポート機能</li>
+            <li><strong>要件 5.2:</strong> 画像と抽出結果のZIP形式保存</li>
+            <li><strong>要件 5.3:</strong> IndexedDBによる履歴管理</li>
+            <li><strong>要件 5.4:</strong> LRU方式による50件上限管理</li>
+        </ul>
+    </div>
+
+    <div class="test-controls">
+        <h2>🧪 テスト実行</h2>
+        <div class="button-group">
+            <button id="run-all-tests" class="test-button">全テスト実行</button>
+            <button id="run-storage-tests" class="test-button secondary">データ保存・読み込み</button>
+            <button id="run-export-tests" class="test-button secondary">エクスポート機能</button>
+            <button id="run-limit-tests" class="test-button secondary">上限管理</button>
+            <button id="clear-results" class="test-button danger">結果クリア</button>
+        </div>
+        
+        <div class="progress-section" id="progress-section">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-text" id="progress-text">テスト準備中...</div>
+        </div>
+    </div>
+
+    <div class="results-section" id="results-section" style="display: none;">
+        <h2>📊 テスト結果</h2>
+        
+        <div class="summary-stats" id="summary-stats">
+            <div class="stat-card">
+                <div class="stat-number" id="total-tests">0</div>
+                <div class="stat-label">総テスト数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="passed-tests">0</div>
+                <div class="stat-label">成功</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="failed-tests">0</div>
+                <div class="stat-label">失敗</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number success-rate" id="success-rate">0%</div>
+                <div class="stat-label">成功率</div>
+            </div>
+        </div>
+
+        <div class="test-results" id="test-results">
+            <!-- テスト結果がここに表示されます -->
+        </div>
+
+        <div class="console-output" id="console-output" style="display: none;">
+            <!-- コンソール出力がここに表示されます -->
+        </div>
+    </div>
+
+    <!-- 必要なスクリプトの読み込み -->
+    <script src="../js/storage-manager.js"></script>
+    <script src="../js/export-manager.js"></script>
+    <script src="../js/zip-export-manager.js"></script>
+    <script src="storage-functionality-tests.js"></script>
+
+    <script>
+        class StorageTestRunner {
+            constructor() {
+                this.testInstance = null;
+                this.consoleOutput = [];
+                this.originalConsoleLog = console.log;
+                this.originalConsoleError = console.error;
+                this.setupConsoleCapture();
+                this.setupEventListeners();
+            }
+
+            setupConsoleCapture() {
+                const self = this;
+                
+                console.log = function(...args) {
+                    self.originalConsoleLog.apply(console, args);
+                    self.consoleOutput.push({
+                        type: 'log',
+                        message: args.join(' '),
+                        timestamp: new Date()
+                    });
+                    self.updateConsoleDisplay();
+                };
+
+                console.error = function(...args) {
+                    self.originalConsoleError.apply(console, args);
+                    self.consoleOutput.push({
+                        type: 'error',
+                        message: args.join(' '),
+                        timestamp: new Date()
+                    });
+                    self.updateConsoleDisplay();
+                };
+            }
+
+            setupEventListeners() {
+                document.getElementById('run-all-tests').addEventListener('click', () => {
+                    this.runAllTests();
+                });
+
+                document.getElementById('run-storage-tests').addEventListener('click', () => {
+                    this.runSpecificTests('storage');
+                });
+
+                document.getElementById('run-export-tests').addEventListener('click', () => {
+                    this.runSpecificTests('export');
+                });
+
+                document.getElementById('run-limit-tests').addEventListener('click', () => {
+                    this.runSpecificTests('limit');
+                });
+
+                document.getElementById('clear-results').addEventListener('click', () => {
+                    this.clearResults();
+                });
+            }
+
+            async runAllTests() {
+                this.showProgress();
+                this.disableButtons();
+                this.clearConsole();
+
+                try {
+                    this.testInstance = new StorageFunctionalityTests();
+                    await this.testInstance.runAllTests();
+                    this.displayResults();
+                } catch (error) {
+                    console.error('テスト実行エラー:', error);
+                } finally {
+                    this.hideProgress();
+                    this.enableButtons();
+                }
+            }
+
+            async runSpecificTests(category) {
+                this.showProgress();
+                this.disableButtons();
+                this.clearConsole();
+
+                try {
+                    this.testInstance = new StorageFunctionalityTests();
+                    await this.testInstance.setupTestEnvironment();
+
+                    switch (category) {
+                        case 'storage':
+                            await this.testInstance.testDataSaveLoad();
+                            break;
+                        case 'export':
+                            await this.testInstance.testExportFunctionality();
+                            break;
+                        case 'limit':
+                            await this.testInstance.testLimitManagement();
+                            break;
+                    }
+
+                    this.testInstance.displayResults();
+                    this.displayResults();
+                } catch (error) {
+                    console.error('テスト実行エラー:', error);
+                } finally {
+                    await this.testInstance.cleanup();
+                    this.hideProgress();
+                    this.enableButtons();
+                }
+            }
+
+            displayResults() {
+                const results = window.storageTestResults;
+                if (!results) return;
+
+                // サマリー統計の更新
+                document.getElementById('total-tests').textContent = results.totalTests;
+                document.getElementById('passed-tests').textContent = results.passedTests;
+                document.getElementById('failed-tests').textContent = results.failedTests;
+                
+                const successRateElement = document.getElementById('success-rate');
+                successRateElement.textContent = results.successRate + '%';
+                
+                // 成功率に応じてスタイルを変更
+                successRateElement.className = 'stat-number success-rate';
+                if (results.successRate < 70) {
+                    successRateElement.classList.add('error');
+                } else if (results.successRate < 90) {
+                    successRateElement.classList.add('warning');
+                }
+
+                // 詳細結果の表示
+                this.displayDetailedResults(results.details);
+
+                // 結果セクションを表示
+                document.getElementById('results-section').style.display = 'block';
+            }
+
+            displayDetailedResults(details) {
+                const resultsContainer = document.getElementById('test-results');
+                
+                // カテゴリ別にテスト結果を分類
+                const categories = {
+                    'データ保存・読み込み': [],
+                    'エクスポート機能': [],
+                    '上限管理': [],
+                    'その他': []
+                };
+
+                details.forEach(result => {
+                    if (result.name.includes('保存') || result.name.includes('読み込') || 
+                        result.name.includes('削除') || result.name.includes('検索') || 
+                        result.name.includes('ストレージ情報')) {
+                        categories['データ保存・読み込み'].push(result);
+                    } else if (result.name.includes('エクスポート') || result.name.includes('JSON') || 
+                               result.name.includes('CSV') || result.name.includes('ZIP') || 
+                               result.name.includes('プレビュー') || result.name.includes('バッチ')) {
+                        categories['エクスポート機能'].push(result);
+                    } else if (result.name.includes('上限') || result.name.includes('LRU') || 
+                               result.name.includes('アクセス') || result.name.includes('超過') || 
+                               result.name.includes('使用量')) {
+                        categories['上限管理'].push(result);
+                    } else {
+                        categories['その他'].push(result);
+                    }
+                });
+
+                let html = '';
+                Object.entries(categories).forEach(([categoryName, categoryResults]) => {
+                    if (categoryResults.length === 0) return;
+
+                    const passedCount = categoryResults.filter(r => r.success).length;
+                    const totalCount = categoryResults.length;
+                    
+                    html += `
+                        <div class="test-category">
+                            <div class="category-header">
+                                ${categoryName} (${passedCount}/${totalCount})
+                            </div>
+                    `;
+
+                    categoryResults.forEach(result => {
+                        const statusIcon = result.success ? '✅' : '❌';
+                        html += `
+                            <div class="test-item">
+                                <div>
+                                    <div class="test-name">${result.name}</div>
+                                    <div class="test-details">${result.details}</div>
+                                </div>
+                                <div class="test-status">
+                                    <span class="status-icon">${statusIcon}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    html += '</div>';
+                });
+
+                resultsContainer.innerHTML = html;
+            }
+
+            updateConsoleDisplay() {
+                const consoleElement = document.getElementById('console-output');
+                const output = this.consoleOutput
+                    .map(entry => {
+                        const timestamp = entry.timestamp.toLocaleTimeString();
+                        const prefix = entry.type === 'error' ? '❌' : '📝';
+                        return `[${timestamp}] ${prefix} ${entry.message}`;
+                    })
+                    .join('\n');
+                
+                consoleElement.textContent = output;
+                consoleElement.scrollTop = consoleElement.scrollHeight;
+                
+                if (this.consoleOutput.length > 0) {
+                    consoleElement.style.display = 'block';
+                }
+            }
+
+            showProgress() {
+                document.getElementById('progress-section').classList.add('active');
+                this.updateProgress(0, 'テスト開始中...');
+            }
+
+            hideProgress() {
+                document.getElementById('progress-section').classList.remove('active');
+            }
+
+            updateProgress(percentage, text) {
+                document.getElementById('progress-fill').style.width = percentage + '%';
+                document.getElementById('progress-text').textContent = text;
+            }
+
+            disableButtons() {
+                const buttons = document.querySelectorAll('.test-button');
+                buttons.forEach(button => {
+                    button.disabled = true;
+                });
+            }
+
+            enableButtons() {
+                const buttons = document.querySelectorAll('.test-button');
+                buttons.forEach(button => {
+                    button.disabled = false;
+                });
+            }
+
+            clearResults() {
+                document.getElementById('results-section').style.display = 'none';
+                this.clearConsole();
+                
+                // 統計をリセット
+                document.getElementById('total-tests').textContent = '0';
+                document.getElementById('passed-tests').textContent = '0';
+                document.getElementById('failed-tests').textContent = '0';
+                document.getElementById('success-rate').textContent = '0%';
+                document.getElementById('success-rate').className = 'stat-number success-rate';
+                
+                // 結果をクリア
+                document.getElementById('test-results').innerHTML = '';
+                
+                // グローバル結果をクリア
+                if (window.storageTestResults) {
+                    delete window.storageTestResults;
+                }
+            }
+
+            clearConsole() {
+                this.consoleOutput = [];
+                document.getElementById('console-output').textContent = '';
+                document.getElementById('console-output').style.display = 'none';
+            }
+        }
+
+        // ページ読み込み完了後にテストランナーを初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            new StorageTestRunner();
+            console.log('🧪 ストレージ機能テストランナーが初期化されました');
+            console.log('📋 テスト対象: データ保存・読み込み、エクスポート機能、上限管理');
+        });
+    </script>
+</body>
+</html>

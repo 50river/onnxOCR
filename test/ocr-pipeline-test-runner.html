@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCRパイプラインテスト実行</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-width: 120px;
+        }
+        
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .btn-success {
+            background: #059669;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #047857;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .status-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .status-value {
+            font-family: monospace;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .status-loading {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .log-panel {
+            background: #1f2937;
+            color: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #2563eb;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .test-requirements {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .test-requirements h3 {
+            margin: 0 0 10px 0;
+            color: #1e40af;
+        }
+        
+        .test-requirements ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .test-requirements li {
+            margin-bottom: 5px;
+            color: #1e40af;
+        }
+        
+        .performance-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .metric-card {
+            background: white;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 OCRパイプラインテスト</h1>
+        <p>検出精度・認識精度・処理時間の測定テスト</p>
+        <p><strong>要件:</strong> 2.2 (OCR処理), 7.1 (性能要件)</p>
+    </div>
+
+    <div class="test-requirements">
+        <h3>📋 テスト要件</h3>
+        <ul>
+            <li><strong>検出精度:</strong> テキスト領域の検出精度70%以上</li>
+            <li><strong>認識精度:</strong> テキスト認識精度60%以上</li>
+            <li><strong>処理時間:</strong> 初回OCR処理10秒以内 (要件7.1)</li>
+            <li><strong>信頼度:</strong> 全体信頼度80%以上 (要件2.2)</li>
+        </ul>
+    </div>
+
+    <div class="test-controls">
+        <button id="runAllTests" class="btn btn-primary">🧪 全テスト実行</button>
+        <button id="runDetectionTests" class="btn btn-secondary">🎯 検出精度テスト</button>
+        <button id="runRecognitionTests" class="btn btn-secondary">📝 認識精度テスト</button>
+        <button id="runPerformanceTests" class="btn btn-secondary">⚡ 処理時間テスト</button>
+        <button id="clearResults" class="btn btn-secondary">🗑️ 結果クリア</button>
+    </div>
+
+    <div class="status-panel">
+        <h3>📊 テスト状態</h3>
+        <div class="status-item">
+            <span class="status-label">OCRエンジン状態</span>
+            <span id="engineStatus" class="status-value status-loading">未初期化</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">実行中のテスト</span>
+            <span id="currentTest" class="status-value">なし</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">進行状況</span>
+            <span id="testProgress" class="status-value">0%</span>
+        </div>
+        <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+        </div>
+    </div>
+
+    <div class="performance-metrics" id="performanceMetrics" style="display: none;">
+        <div class="metric-card">
+            <div id="avgDetectionAccuracy" class="metric-value">-</div>
+            <div class="metric-label">平均検出精度</div>
+        </div>
+        <div class="metric-card">
+            <div id="avgRecognitionAccuracy" class="metric-value">-</div>
+            <div class="metric-label">平均認識精度</div>
+        </div>
+        <div class="metric-card">
+            <div id="avgProcessingTime" class="metric-value">-</div>
+            <div class="metric-label">平均処理時間</div>
+        </div>
+        <div class="metric-card">
+            <div id="testPassRate" class="metric-value">-</div>
+            <div class="metric-label">テスト合格率</div>
+        </div>
+    </div>
+
+    <div class="status-panel">
+        <h3>📝 テストログ</h3>
+        <div id="testLog" class="log-panel">テストを開始してください...\n</div>
+    </div>
+
+    <!-- 必要なライブラリの読み込み -->
+    <script src="../libs/ort.min.js"></script>
+    <script src="../libs/tesseract.min.js"></script>
+    <script src="../js/exif-reader.js"></script>
+    <script src="../js/perspective-correction.js"></script>
+    <script src="../js/ocr-engine.js"></script>
+    <script src="../js/ocr-worker-manager.js"></script>
+    <script src="ocr-pipeline-tests.js"></script>
+
+    <script>
+        class OCRPipelineTestRunner {
+            constructor() {
+                this.testInstance = null;
+                this.isRunning = false;
+                this.setupEventListeners();
+                this.initializeUI();
+            }
+
+            setupEventListeners() {
+                document.getElementById('runAllTests').addEventListener('click', () => this.runAllTests());
+                document.getElementById('runDetectionTests').addEventListener('click', () => this.runDetectionTests());
+                document.getElementById('runRecognitionTests').addEventListener('click', () => this.runRecognitionTests());
+                document.getElementById('runPerformanceTests').addEventListener('click', () => this.runPerformanceTests());
+                document.getElementById('clearResults').addEventListener('click', () => this.clearResults());
+            }
+
+            initializeUI() {
+                this.updateEngineStatus('未初期化', 'loading');
+                this.log('OCRパイプラインテストランナーが初期化されました。');
+                this.log('テストを開始するには上のボタンをクリックしてください。');
+            }
+
+            async runAllTests() {
+                if (this.isRunning) return;
+                
+                try {
+                    this.startTest('全テスト実行');
+                    this.testInstance = new OCRPipelineTests();
+                    
+                    // プログレス監視を設定
+                    this.setupProgressMonitoring();
+                    
+                    await this.testInstance.runAllTests();
+                    
+                    this.updateMetrics();
+                    this.updateEngineStatus('テスト完了', 'success');
+                    this.log('✅ 全テストが完了しました。');
+                    
+                } catch (error) {
+                    this.updateEngineStatus('エラー', 'error');
+                    this.log(`❌ テスト実行エラー: ${error.message}`);
+                } finally {
+                    this.endTest();
+                }
+            }
+
+            async runDetectionTests() {
+                if (this.isRunning) return;
+                
+                try {
+                    this.startTest('検出精度テスト');
+                    this.testInstance = new OCRPipelineTests();
+                    
+                    await this.testInstance.setupTestEnvironment();
+                    await this.testInstance.prepareTestImages();
+                    await this.testInstance.testDetectionAccuracy();
+                    
+                    this.updateMetrics();
+                    this.updateEngineStatus('検出テスト完了', 'success');
+                    this.log('✅ 検出精度テストが完了しました。');
+                    
+                } catch (error) {
+                    this.updateEngineStatus('エラー', 'error');
+                    this.log(`❌ 検出テストエラー: ${error.message}`);
+                } finally {
+                    this.endTest();
+                }
+            }
+
+            async runRecognitionTests() {
+                if (this.isRunning) return;
+                
+                try {
+                    this.startTest('認識精度テスト');
+                    this.testInstance = new OCRPipelineTests();
+                    
+                    await this.testInstance.setupTestEnvironment();
+                    await this.testInstance.prepareTestImages();
+                    await this.testInstance.testRecognitionAccuracy();
+                    
+                    this.updateMetrics();
+                    this.updateEngineStatus('認識テスト完了', 'success');
+                    this.log('✅ 認識精度テストが完了しました。');
+                    
+                } catch (error) {
+                    this.updateEngineStatus('エラー', 'error');
+                    this.log(`❌ 認識テストエラー: ${error.message}`);
+                } finally {
+                    this.endTest();
+                }
+            }
+
+            async runPerformanceTests() {
+                if (this.isRunning) return;
+                
+                try {
+                    this.startTest('処理時間テスト');
+                    this.testInstance = new OCRPipelineTests();
+                    
+                    await this.testInstance.setupTestEnvironment();
+                    await this.testInstance.prepareTestImages();
+                    await this.testInstance.testProcessingTime();
+                    
+                    this.updateMetrics();
+                    this.updateEngineStatus('性能テスト完了', 'success');
+                    this.log('✅ 処理時間テストが完了しました。');
+                    
+                } catch (error) {
+                    this.updateEngineStatus('エラー', 'error');
+                    this.log(`❌ 性能テストエラー: ${error.message}`);
+                } finally {
+                    this.endTest();
+                }
+            }
+
+            startTest(testName) {
+                this.isRunning = true;
+                this.updateCurrentTest(testName);
+                this.updateProgress(0);
+                this.updateEngineStatus('実行中', 'loading');
+                this.setButtonsEnabled(false);
+                this.log(`🚀 ${testName}を開始します...`);
+            }
+
+            endTest() {
+                this.isRunning = false;
+                this.updateCurrentTest('なし');
+                this.updateProgress(100);
+                this.setButtonsEnabled(true);
+                
+                if (this.testInstance) {
+                    this.testInstance.cleanupTestEnvironment();
+                }
+            }
+
+            setupProgressMonitoring() {
+                // テストの進行状況を監視
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    if (!this.isRunning) {
+                        clearInterval(progressInterval);
+                        return;
+                    }
+                    
+                    progress = Math.min(progress + Math.random() * 10, 95);
+                    this.updateProgress(progress);
+                }, 500);
+            }
+
+            updateMetrics() {
+                if (!this.testInstance || !this.testInstance.performanceMetrics) {
+                    return;
+                }
+
+                const metrics = this.testInstance.performanceMetrics;
+                const testResults = this.testInstance.testResults;
+
+                // 検出精度の計算
+                const detectionMetrics = metrics.filter(m => m.test.startsWith('detection_'));
+                if (detectionMetrics.length > 0) {
+                    const avgDetectionAccuracy = detectionMetrics.reduce((sum, m) => sum + m.accuracy, 0) / detectionMetrics.length;
+                    document.getElementById('avgDetectionAccuracy').textContent = `${(avgDetectionAccuracy * 100).toFixed(1)}%`;
+                }
+
+                // 認識精度の計算
+                const recognitionMetrics = metrics.filter(m => m.test.startsWith('recognition_'));
+                if (recognitionMetrics.length > 0) {
+                    const avgRecognitionAccuracy = recognitionMetrics.reduce((sum, m) => sum + m.accuracy, 0) / recognitionMetrics.length;
+                    document.getElementById('avgRecognitionAccuracy').textContent = `${(avgRecognitionAccuracy * 100).toFixed(1)}%`;
+                }
+
+                // 平均処理時間の計算
+                if (metrics.length > 0) {
+                    const avgProcessingTime = metrics.reduce((sum, m) => sum + m.processingTime, 0) / metrics.length;
+                    document.getElementById('avgProcessingTime').textContent = `${avgProcessingTime.toFixed(0)}ms`;
+                }
+
+                // テスト合格率の計算
+                if (testResults.length > 0) {
+                    const passedTests = testResults.filter(r => r.passed).length;
+                    const passRate = (passedTests / testResults.length) * 100;
+                    document.getElementById('testPassRate').textContent = `${passRate.toFixed(1)}%`;
+                }
+
+                // メトリクスパネルを表示
+                document.getElementById('performanceMetrics').style.display = 'grid';
+            }
+
+            updateEngineStatus(status, type) {
+                const statusElement = document.getElementById('engineStatus');
+                statusElement.textContent = status;
+                statusElement.className = `status-value status-${type}`;
+            }
+
+            updateCurrentTest(testName) {
+                document.getElementById('currentTest').textContent = testName;
+            }
+
+            updateProgress(percentage) {
+                document.getElementById('testProgress').textContent = `${Math.round(percentage)}%`;
+                document.getElementById('progressFill').style.width = `${percentage}%`;
+            }
+
+            setButtonsEnabled(enabled) {
+                const buttons = document.querySelectorAll('.btn');
+                buttons.forEach(button => {
+                    button.disabled = !enabled;
+                });
+            }
+
+            clearResults() {
+                document.getElementById('testLog').textContent = 'ログがクリアされました。\n';
+                document.getElementById('performanceMetrics').style.display = 'none';
+                this.updateEngineStatus('未初期化', 'loading');
+                this.updateCurrentTest('なし');
+                this.updateProgress(0);
+                
+                // 既存の結果表示を削除
+                const existingResults = document.getElementById('ocr-pipeline-test-results');
+                if (existingResults) {
+                    existingResults.remove();
+                }
+            }
+
+            log(message) {
+                const logElement = document.getElementById('testLog');
+                const timestamp = new Date().toLocaleTimeString();
+                logElement.textContent += `[${timestamp}] ${message}\n`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+        }
+
+        // コンソールログをUIに転送
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        let testRunner;
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            if (testRunner) {
+                testRunner.log(args.join(' '));
+            }
+        };
+
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            if (testRunner) {
+                testRunner.log('❌ ' + args.join(' '));
+            }
+        };
+
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+            if (testRunner) {
+                testRunner.log('⚠️ ' + args.join(' '));
+            }
+        };
+
+        // ページ読み込み完了後にテストランナーを初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            testRunner = new OCRPipelineTestRunner();
+        });
+
+        // エラーハンドリング
+        window.addEventListener('error', (event) => {
+            if (testRunner) {
+                testRunner.log(`❌ JavaScript エラー: ${event.error.message}`);
+                testRunner.updateEngineStatus('エラー', 'error');
+            }
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            if (testRunner) {
+                testRunner.log(`❌ Promise 拒否: ${event.reason}`);
+                testRunner.updateEngineStatus('エラー', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
