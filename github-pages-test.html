@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Pages デプロイメントテスト - 領収書OCR</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            font-weight: bold;
+            border-left: 4px solid;
+        }
+        .success { 
+            background: #d4edda; 
+            color: #155724; 
+            border-color: #28a745;
+        }
+        .error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            border-color: #dc3545;
+        }
+        .info { 
+            background: #d1ecf1; 
+            color: #0c5460; 
+            border-color: #17a2b8;
+        }
+        .warning { 
+            background: #fff3cd; 
+            color: #856404; 
+            border-color: #ffc107;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #f8f9fa;
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        
+        #debugLog {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        
+        .log-error { color: #dc3545; }
+        .log-success { color: #28a745; }
+        .log-warning { color: #ffc107; }
+        .log-info { color: #17a2b8; }
+        
+        .environment-info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        
+        .environment-info h4 {
+            margin-top: 0;
+            color: #495057;
+        }
+        
+        .environment-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .environment-info td {
+            padding: 4px 8px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .environment-info td:first-child {
+            font-weight: bold;
+            width: 30%;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        .fallback-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            max-width: 400px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+        
+        .notification-content {
+            display: flex;
+            align-items: flex-start;
+            padding: 15px;
+        }
+        
+        .notification-icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+        
+        .notification-text {
+            flex: 1;
+        }
+        
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            margin: 0 0 0 10px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 GitHub Pages デプロイメントテスト</h1>
+        <p>このページは GitHub Pages 環境での領収書OCRアプリの動作を確認するためのテストページです。</p>
+        
+        <div class="environment-info">
+            <h4>🌐 環境情報</h4>
+            <table>
+                <tr><td>ホスト名:</td><td id="hostname">-</td></tr>
+                <tr><td>プロトコル:</td><td id="protocol">-</td></tr>
+                <tr><td>パス:</td><td id="pathname">-</td></tr>
+                <tr><td>GitHub Pages:</td><td id="isGitHubPages">-</td></tr>
+                <tr><td>フォールバックモード:</td><td id="fallbackMode">-</td></tr>
+                <tr><td>ユーザーエージェント:</td><td id="userAgent">-</td></tr>
+            </table>
+        </div>
+        
+        <div id="overallStatus" class="status info">
+            テスト準備中...
+        </div>
+        
+        <div class="test-section">
+            <h3>📋 自動診断テスト</h3>
+            <button onclick="runFullDiagnostics()" id="diagnosticsBtn">完全診断を実行</button>
+            <button onclick="clearLog()">ログクリア</button>
+            <div class="progress-bar" style="display: none;" id="diagnosticsProgress">
+                <div class="progress-fill" id="diagnosticsProgressFill"></div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🧪 個別機能テスト</h3>
+            <button onclick="testLibraryLoading()">ライブラリ読み込みテスト</button>
+            <button onclick="testModelFiles()">モデルファイルテスト</button>
+            <button onclick="testOCRInitialization()">OCR初期化テスト</button>
+            <button onclick="testFieldExtractor()">フィールド抽出テスト</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>📱 実機能テスト</h3>
+            <button onclick="testBasicOCR()">基本OCR機能テスト</button>
+            <button onclick="openMainApp()">メインアプリを開く</button>
+            <button onclick="openTestBasic()">基本テストページを開く</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 デバッグログ</h3>
+            <div id="debugLog"></div>
+        </div>
+    </div>
+
+    <!-- 必要なライブラリ -->
+    <script src="libs/tesseract.min.js"></script>
+    <script src="js/field-extractor.js"></script>
+    <script src="js/github-pages-fix.js"></script>
+    
+    <script>
+        // グローバル変数
+        let diagnosticsRunning = false;
+        let testResults = {};
+        
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateEnvironmentInfo();
+            log('GitHub Pages デプロイメントテストページが読み込まれました', 'info');
+        });
+        
+        // 環境情報の更新
+        function updateEnvironmentInfo() {
+            document.getElementById('hostname').textContent = window.location.hostname;
+            document.getElementById('protocol').textContent = window.location.protocol;
+            document.getElementById('pathname').textContent = window.location.pathname;
+            
+            const isGitHubPages = window.location.hostname.includes('github.io') || 
+                                 window.location.hostname.includes('github.com');
+            document.getElementById('isGitHubPages').textContent = isGitHubPages ? '✅ はい' : '❌ いいえ';
+            
+            const fallbackMode = window.FORCE_TESSERACT_FALLBACK || window.GITHUB_PAGES_MODE;
+            document.getElementById('fallbackMode').textContent = fallbackMode ? '✅ 有効' : '❌ 無効';
+            
+            document.getElementById('userAgent').textContent = navigator.userAgent.substring(0, 80) + '...';
+        }
+        
+        // ログ機能
+        function log(message, type = 'info') {
+            const debugLog = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            debugLog.appendChild(logEntry);
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+        
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+        
+        // ステータス更新
+        function updateOverallStatus(message, type = 'info') {
+            const status = document.getElementById('overallStatus');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            log(message, type);
+        }
+        
+        // 進行状況の更新
+        function updateProgress(percentage) {
+            const progressBar = document.getElementById('diagnosticsProgress');
+            const progressFill = document.getElementById('diagnosticsProgressFill');
+            
+            if (percentage > 0) {
+                progressBar.style.display = 'block';
+                progressFill.style.width = percentage + '%';
+            } else {
+                progressBar.style.display = 'none';
+            }
+        }
+        
+        // 完全診断の実行
+        async function runFullDiagnostics() {
+            if (diagnosticsRunning) return;
+            
+            diagnosticsRunning = true;
+            document.getElementById('diagnosticsBtn').disabled = true;
+            testResults = {};
+            
+            try {
+                updateOverallStatus('完全診断を実行中...', 'info');
+                updateProgress(0);
+                
+                // 1. 基本環境チェック
+                log('=== 1. 基本環境チェック ===', 'info');
+                updateProgress(10);
+                await testBasicEnvironment();
+                
+                // 2. ライブラリ読み込みテスト
+                log('=== 2. ライブラリ読み込みテスト ===', 'info');
+                updateProgress(25);
+                await testLibraryLoading();
+                
+                // 3. モデルファイルテスト
+                log('=== 3. モデルファイルテスト ===', 'info');
+                updateProgress(40);
+                await testModelFiles();
+                
+                // 4. OCR初期化テスト
+                log('=== 4. OCR初期化テスト ===', 'info');
+                updateProgress(60);
+                await testOCRInitialization();
+                
+                // 5. フィールド抽出テスト
+                log('=== 5. フィールド抽出テスト ===', 'info');
+                updateProgress(80);
+                await testFieldExtractor();
+                
+                // 6. 結果の集計
+                updateProgress(100);
+                await generateDiagnosticsReport();
+                
+                updateOverallStatus('完全診断が完了しました', 'success');
+                
+            } catch (error) {
+                log(`完全診断エラー: ${error.message}`, 'error');
+                updateOverallStatus('完全診断でエラーが発生しました', 'error');
+            } finally {
+                diagnosticsRunning = false;
+                document.getElementById('diagnosticsBtn').disabled = false;
+                updateProgress(0);
+            }
+        }
+        
+        // 基本環境チェック
+        async function testBasicEnvironment() {
+            const tests = [
+                { name: 'fetch API', test: () => typeof fetch !== 'undefined' },
+                { name: 'Web Worker', test: () => typeof Worker !== 'undefined' },
+                { name: 'IndexedDB', test: () => typeof indexedDB !== 'undefined' },
+                { name: 'Canvas API', test: () => typeof HTMLCanvasElement !== 'undefined' },
+                { name: 'File API', test: () => typeof File !== 'undefined' },
+                { name: 'Blob API', test: () => typeof Blob !== 'undefined' }
+            ];
+            
+            let passed = 0;
+            for (const test of tests) {
+                try {
+                    const result = test.test();
+                    if (result) {
+                        log(`✅ ${test.name}: 利用可能`, 'success');
+                        passed++;
+                    } else {
+                        log(`❌ ${test.name}: 利用不可`, 'error');
+                    }
+                } catch (error) {
+                    log(`❌ ${test.name}: エラー - ${error.message}`, 'error');
+                }
+            }
+            
+            testResults.basicEnvironment = { passed, total: tests.length };
+        }
+        
+        // ライブラリ読み込みテスト
+        async function testLibraryLoading() {
+            const libraries = [
+                { name: 'Tesseract.js', path: 'libs/tesseract.min.js', global: 'Tesseract' },
+                { name: 'ONNX Runtime', path: 'libs/ort.min.js', global: 'ort' },
+                { name: 'OpenCV.js', path: 'libs/opencv.js', global: 'cv' },
+                { name: 'JSZip', path: 'libs/jszip.min.js', global: 'JSZip' }
+            ];
+            
+            let passed = 0;
+            for (const lib of libraries) {
+                try {
+                    // ファイルの存在確認
+                    const response = await fetch(lib.path, { method: 'HEAD' });
+                    if (response.ok) {
+                        const size = response.headers.get('content-length');
+                        log(`✅ ${lib.name}: ファイル存在 (${size} bytes)`, 'success');
+                        
+                        // グローバル変数の確認
+                        if (typeof window[lib.global] !== 'undefined') {
+                            log(`✅ ${lib.name}: グローバル変数利用可能`, 'success');
+                            passed++;
+                        } else {
+                            log(`⚠️ ${lib.name}: グローバル変数未定義`, 'warning');
+                        }
+                    } else {
+                        log(`❌ ${lib.name}: HTTP ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    log(`❌ ${lib.name}: ${error.message}`, 'error');
+                }
+            }
+            
+            testResults.libraryLoading = { passed, total: libraries.length };
+        }
+        
+        // モデルファイルテスト
+        async function testModelFiles() {
+            const models = [
+                { name: 'テキスト検出モデル', path: 'models/text_det.onnx', minSize: 1000000 },
+                { name: 'テキスト認識モデル', path: 'models/text_rec_jp.onnx', minSize: 1000000 },
+                { name: '角度分類モデル', path: 'models/text_angle.onnx', minSize: 100000 },
+                { name: '文字セット', path: 'models/charset_jp.txt', minSize: 1000 }
+            ];
+            
+            let passed = 0;
+            for (const model of models) {
+                try {
+                    const response = await fetch(model.path, { method: 'HEAD' });
+                    if (response.ok) {
+                        const size = parseInt(response.headers.get('content-length') || '0');
+                        if (size >= model.minSize) {
+                            log(`✅ ${model.name}: 正常 (${size} bytes)`, 'success');
+                            passed++;
+                        } else {
+                            log(`⚠️ ${model.name}: サイズ不足 (${size} bytes, 最小: ${model.minSize})`, 'warning');
+                        }
+                    } else {
+                        log(`❌ ${model.name}: HTTP ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    log(`❌ ${model.name}: ${error.message}`, 'error');
+                }
+            }
+            
+            testResults.modelFiles = { passed, total: models.length };
+        }
+        
+        // OCR初期化テスト
+        async function testOCRInitialization() {
+            try {
+                if (typeof Tesseract === 'undefined') {
+                    log('❌ Tesseract.jsが読み込まれていません', 'error');
+                    testResults.ocrInitialization = { passed: 0, total: 1 };
+                    return;
+                }
+                
+                log('Tesseract.js初期化テストを開始...', 'info');
+                
+                const worker = await Tesseract.createWorker({
+                    logger: m => {
+                        if (m.status === 'loading tesseract core') {
+                            log(`Tesseract.js: ${m.status}`, 'info');
+                        }
+                    }
+                });
+                
+                await worker.loadLanguage('eng');
+                await worker.initialize('eng');
+                
+                log('✅ Tesseract.js初期化成功', 'success');
+                
+                await worker.terminate();
+                log('✅ Tesseract.jsワーカー終了成功', 'success');
+                
+                testResults.ocrInitialization = { passed: 1, total: 1 };
+                
+            } catch (error) {
+                log(`❌ OCR初期化エラー: ${error.message}`, 'error');
+                testResults.ocrInitialization = { passed: 0, total: 1 };
+            }
+        }
+        
+        // フィールド抽出テスト
+        async function testFieldExtractor() {
+            try {
+                if (typeof FieldExtractor === 'undefined') {
+                    log('❌ FieldExtractorが読み込まれていません', 'error');
+                    testResults.fieldExtractor = { passed: 0, total: 1 };
+                    return;
+                }
+                
+                const extractor = new FieldExtractor();
+                
+                // テストデータ
+                const testTextBlocks = [
+                    { text: '2024/03/15', confidence: 0.9, boundingBox: { x: 10, y: 10, width: 100, height: 20 } },
+                    { text: 'コンビニエンスストア', confidence: 0.8, boundingBox: { x: 10, y: 40, width: 200, height: 25 } },
+                    { text: '合計 1,500円', confidence: 0.85, boundingBox: { x: 10, y: 100, width: 120, height: 20 } }
+                ];
+                
+                const result = await extractor.extractFields(testTextBlocks);
+                
+                if (result && typeof result === 'object') {
+                    log('✅ フィールド抽出テスト成功', 'success');
+                    log(`抽出結果: 日付=${result.date?.value}, 金額=${result.amount?.value}`, 'info');
+                    testResults.fieldExtractor = { passed: 1, total: 1 };
+                } else {
+                    log('❌ フィールド抽出結果が不正です', 'error');
+                    testResults.fieldExtractor = { passed: 0, total: 1 };
+                }
+                
+            } catch (error) {
+                log(`❌ フィールド抽出エラー: ${error.message}`, 'error');
+                testResults.fieldExtractor = { passed: 0, total: 1 };
+            }
+        }
+        
+        // 診断レポートの生成
+        async function generateDiagnosticsReport() {
+            log('=== 診断結果サマリー ===', 'info');
+            
+            let totalPassed = 0;
+            let totalTests = 0;
+            
+            for (const [category, result] of Object.entries(testResults)) {
+                const percentage = Math.round((result.passed / result.total) * 100);
+                log(`${category}: ${result.passed}/${result.total} (${percentage}%)`, 
+                    percentage >= 80 ? 'success' : percentage >= 50 ? 'warning' : 'error');
+                
+                totalPassed += result.passed;
+                totalTests += result.total;
+            }
+            
+            const overallPercentage = Math.round((totalPassed / totalTests) * 100);
+            log(`総合: ${totalPassed}/${totalTests} (${overallPercentage}%)`, 
+                overallPercentage >= 80 ? 'success' : overallPercentage >= 50 ? 'warning' : 'error');
+            
+            // 推奨事項
+            log('=== 推奨事項 ===', 'info');
+            if (testResults.modelFiles?.passed < testResults.modelFiles?.total) {
+                log('⚠️ ONNXモデルファイルが不足しています。Tesseract.jsフォールバックモードで動作します。', 'warning');
+            }
+            if (testResults.ocrInitialization?.passed > 0) {
+                log('✅ 基本的なOCR機能は利用可能です。', 'success');
+            }
+            if (overallPercentage >= 60) {
+                log('✅ アプリケーションは基本的な機能で動作可能です。', 'success');
+            }
+        }
+        
+        // 基本OCR機能テスト
+        async function testBasicOCR() {
+            try {
+                log('基本OCR機能テストを開始...', 'info');
+                
+                // テスト用の簡単な画像を作成
+                const canvas = document.createElement('canvas');
+                canvas.width = 200;
+                canvas.height = 100;
+                const ctx = canvas.getContext('2d');
+                
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, 200, 100);
+                ctx.fillStyle = 'black';
+                ctx.font = '20px Arial';
+                ctx.fillText('TEST 123', 50, 50);
+                
+                if (typeof Tesseract !== 'undefined') {
+                    const worker = await Tesseract.createWorker();
+                    await worker.loadLanguage('eng');
+                    await worker.initialize('eng');
+                    
+                    const result = await worker.recognize(canvas);
+                    log(`OCR結果: "${result.data.text.trim()}"`, 'info');
+                    
+                    await worker.terminate();
+                    log('✅ 基本OCR機能テスト成功', 'success');
+                } else {
+                    log('❌ Tesseract.jsが利用できません', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ 基本OCR機能テストエラー: ${error.message}`, 'error');
+            }
+        }
+        
+        // 外部ページを開く
+        function openMainApp() {
+            window.open('index.html', '_blank');
+        }
+        
+        function openTestBasic() {
+            window.open('test-basic.html', '_blank');
+        }
+        
+        // エラーハンドリング
+        window.addEventListener('error', function(event) {
+            log(`JavaScript Error: ${event.message} at ${event.filename}:${event.lineno}`, 'error');
+        });
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            log(`Unhandled Promise Rejection: ${event.reason}`, 'error');
+        });
+    </script>
+</body>
+</html>

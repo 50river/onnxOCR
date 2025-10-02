@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基本動作テスト - 領収書OCR</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        
+        #imageInput { margin: 10px 0; }
+        #imagePreview { 
+            max-width: 100%; 
+            max-height: 300px; 
+            border: 1px solid #ddd; 
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .result-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .field-group {
+            margin: 10px 0;
+        }
+        .field-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .field-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧾 領収書OCR - 基本動作テスト</h1>
+        
+        <div id="status" class="status info">
+            初期化中...
+        </div>
+        
+        <div class="test-section">
+            <h2>📷 画像アップロード</h2>
+            <input type="file" id="imageInput" accept="image/*" disabled>
+            <img id="imagePreview" alt="プレビュー">
+            <br>
+            <button id="processBtn" disabled>OCR処理開始</button>
+        </div>
+        
+        <div class="result-box" id="resultBox" style="display: none;">
+            <h2>📋 抽出結果</h2>
+            <div class="field-group">
+                <label>日付:</label>
+                <input type="text" id="dateResult" readonly>
+            </div>
+            <div class="field-group">
+                <label>支払先:</label>
+                <input type="text" id="payeeResult" readonly>
+            </div>
+            <div class="field-group">
+                <label>金額:</label>
+                <input type="text" id="amountResult" readonly>
+            </div>
+            <div class="field-group">
+                <label>適用:</label>
+                <input type="text" id="purposeResult" readonly>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 デバッグ情報</h2>
+            <button onclick="runDiagnostics()">診断実行</button>
+            <button onclick="clearLog()">ログクリア</button>
+            <div id="debugLog" style="background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <!-- 必要なライブラリ -->
+    <script src="libs/tesseract.min.js"></script>
+    <script src="js/field-extractor.js"></script>
+    
+    <script>
+        let tesseractWorker = null;
+        let fieldExtractor = null;
+        let currentImage = null;
+        
+        // ログ機能
+        function log(message, type = 'info') {
+            const debugLog = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logEntry.style.color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            debugLog.appendChild(logEntry);
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+        
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+        
+        // ステータス更新
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            log(message, type);
+        }
+        
+        // 初期化
+        async function initialize() {
+            try {
+                updateStatus('Tesseract.jsを初期化中...', 'info');
+                
+                // Tesseract.jsワーカーの作成
+                tesseractWorker = await Tesseract.createWorker({
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            const progress = Math.round(m.progress * 100);
+                            updateStatus(`OCR処理中... ${progress}%`, 'info');
+                        }
+                    }
+                });
+                
+                await tesseractWorker.loadLanguage('jpn+eng');
+                await tesseractWorker.initialize('jpn+eng');
+                
+                // フィールド抽出器の初期化
+                fieldExtractor = new FieldExtractor();
+                
+                updateStatus('初期化完了！画像をアップロードしてください。', 'success');
+                
+                // UI要素を有効化
+                document.getElementById('imageInput').disabled = false;
+                
+                log('Tesseract.js初期化完了', 'success');
+                
+            } catch (error) {
+                updateStatus(`初期化エラー: ${error.message}`, 'error');
+                log(`初期化エラー: ${error.message}`, 'error');
+            }
+        }
+        
+        // 画像アップロード処理
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.getElementById('imagePreview');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                
+                currentImage = img;
+                document.getElementById('processBtn').disabled = false;
+                
+                updateStatus('画像読み込み完了。OCR処理を開始できます。', 'success');
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        // OCR処理
+        document.getElementById('processBtn').addEventListener('click', async function() {
+            if (!currentImage || !tesseractWorker) {
+                updateStatus('画像またはOCRエンジンが準備できていません', 'error');
+                return;
+            }
+            
+            try {
+                this.disabled = true;
+                updateStatus('OCR処理を開始します...', 'info');
+                
+                // Tesseract.jsでOCR実行
+                const result = await tesseractWorker.recognize(currentImage);
+                
+                updateStatus('テキスト抽出完了。フィールドを解析中...', 'info');
+                
+                // テキストブロックに変換
+                const textBlocks = convertTesseractResult(result);
+                
+                // フィールド抽出
+                const extractedFields = await fieldExtractor.extractFields(textBlocks);
+                
+                // 結果表示
+                displayResults(extractedFields);
+                
+                updateStatus('処理完了！', 'success');
+                
+            } catch (error) {
+                updateStatus(`OCR処理エラー: ${error.message}`, 'error');
+                log(`OCR処理エラー: ${error.message}`, 'error');
+            } finally {
+                this.disabled = false;
+            }
+        });
+        
+        // Tesseract結果をテキストブロック形式に変換
+        function convertTesseractResult(tesseractResult) {
+            const { data } = tesseractResult;
+            const textBlocks = [];
+            
+            if (data.words) {
+                data.words.forEach(word => {
+                    if (word.confidence > 30) {
+                        textBlocks.push({
+                            text: word.text,
+                            confidence: word.confidence / 100,
+                            boundingBox: {
+                                x: word.bbox.x0,
+                                y: word.bbox.y0,
+                                width: word.bbox.x1 - word.bbox.x0,
+                                height: word.bbox.y1 - word.bbox.y0
+                            },
+                            fontSize: Math.max(8, Math.min(72, (word.bbox.y1 - word.bbox.y0) * 0.8)),
+                            source: 'tesseract'
+                        });
+                    }
+                });
+            }
+            
+            log(`${textBlocks.length}個のテキストブロックを抽出`, 'info');
+            return textBlocks;
+        }
+        
+        // 結果表示
+        function displayResults(fields) {
+            document.getElementById('dateResult').value = fields.date?.value || '';
+            document.getElementById('payeeResult').value = fields.payee?.value || '';
+            document.getElementById('amountResult').value = fields.amount?.value || '';
+            document.getElementById('purposeResult').value = fields.purpose?.value || '';
+            
+            document.getElementById('resultBox').style.display = 'block';
+            
+            // ログに詳細を出力
+            log('=== 抽出結果 ===', 'success');
+            log(`日付: ${fields.date?.value || '(なし)'} (信頼度: ${Math.round((fields.date?.confidence || 0) * 100)}%)`, 'info');
+            log(`支払先: ${fields.payee?.value || '(なし)'} (信頼度: ${Math.round((fields.payee?.confidence || 0) * 100)}%)`, 'info');
+            log(`金額: ${fields.amount?.value || '(なし)'} (信頼度: ${Math.round((fields.amount?.confidence || 0) * 100)}%)`, 'info');
+            log(`適用: ${fields.purpose?.value || '(なし)'} (信頼度: ${Math.round((fields.purpose?.confidence || 0) * 100)}%)`, 'info');
+        }
+        
+        // 診断機能
+        async function runDiagnostics() {
+            log('=== 診断開始 ===', 'info');
+            
+            // 基本API確認
+            log(`Tesseract.js: ${typeof Tesseract !== 'undefined' ? '✅' : '❌'}`, 'info');
+            log(`FieldExtractor: ${typeof FieldExtractor !== 'undefined' ? '✅' : '❌'}`, 'info');
+            log(`Worker状態: ${tesseractWorker ? '✅ 初期化済み' : '❌ 未初期化'}`, 'info');
+            
+            // ブラウザ情報
+            log(`ユーザーエージェント: ${navigator.userAgent}`, 'info');
+            log(`言語: ${navigator.language}`, 'info');
+            log(`オンライン: ${navigator.onLine ? '✅' : '❌'}`, 'info');
+            
+            log('=== 診断完了 ===', 'info');
+        }
+        
+        // ページ読み込み時に初期化
+        window.addEventListener('load', initialize);
+        
+        // エラーハンドリング
+        window.addEventListener('error', function(event) {
+            log(`JavaScript Error: ${event.message} at ${event.filename}:${event.lineno}`, 'error');
+        });
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            log(`Unhandled Promise Rejection: ${event.reason}`, 'error');
+        });
+    </script>
+</body>
+</html>

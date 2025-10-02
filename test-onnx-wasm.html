@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONNX Runtime Web WASM テスト</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            font-weight: bold;
+            border-left: 4px solid;
+        }
+        .success { 
+            background: #d4edda; 
+            color: #155724; 
+            border-color: #28a745;
+        }
+        .error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            border-color: #dc3545;
+        }
+        .info { 
+            background: #d1ecf1; 
+            color: #0c5460; 
+            border-color: #17a2b8;
+        }
+        .warning { 
+            background: #fff3cd; 
+            color: #856404; 
+            border-color: #ffc107;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 8px 4px;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #f8f9fa;
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        
+        #debugLog {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        
+        .log-error { color: #dc3545; }
+        .log-success { color: #28a745; }
+        .log-warning { color: #ffc107; }
+        .log-info { color: #17a2b8; }
+        
+        .feature-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        .feature-table th,
+        .feature-table td {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            text-align: left;
+        }
+        
+        .feature-table th {
+            background: #e9ecef;
+            font-weight: bold;
+        }
+        
+        .feature-available { color: #28a745; font-weight: bold; }
+        .feature-unavailable { color: #dc3545; font-weight: bold; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 ONNX Runtime Web WASM テスト</h1>
+        <p>このページはONNX Runtime WebのWASMバックエンドの動作を確認するためのテストページです。</p>
+        
+        <div id="overallStatus" class="status info">
+            テスト準備中...
+        </div>
+        
+        <div class="test-section">
+            <h3>🔍 環境チェック</h3>
+            <table class="feature-table">
+                <thead>
+                    <tr>
+                        <th>機能</th>
+                        <th>対応状況</th>
+                        <th>詳細</th>
+                    </tr>
+                </thead>
+                <tbody id="featureTable">
+                    <!-- 動的に生成 -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="test-section">
+            <h3>📋 ONNX Runtime Web テスト</h3>
+            <button onclick="testONNXRuntimeWeb()" id="onnxTestBtn">ONNX Runtime Web テスト実行</button>
+            <button onclick="testWASMBackends()" id="wasmTestBtn">WASMバックエンドテスト</button>
+            <button onclick="testModelLoading()" id="modelTestBtn">モデルローディングテスト</button>
+            <div class="progress-bar" style="display: none;" id="testProgress">
+                <div class="progress-fill" id="testProgressFill"></div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🧪 パフォーマンステスト</h3>
+            <button onclick="runPerformanceTest()" id="perfTestBtn">パフォーマンステスト実行</button>
+            <div id="performanceResults" style="display: none;">
+                <h4>結果:</h4>
+                <table class="feature-table">
+                    <thead>
+                        <tr>
+                            <th>バックエンド</th>
+                            <th>初期化時間</th>
+                            <th>推論時間</th>
+                            <th>メモリ使用量</th>
+                        </tr>
+                    </thead>
+                    <tbody id="performanceTable">
+                        <!-- 動的に生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 デバッグログ</h3>
+            <button onclick="clearLog()">ログクリア</button>
+            <div id="debugLog"></div>
+        </div>
+    </div>
+
+    <!-- ONNX Runtime Web -->
+    <script src="libs/ort.min.js"></script>
+    
+    <script>
+        // グローバル変数
+        let testResults = {};
+        let performanceResults = {};
+        
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            checkEnvironment();
+            log('ONNX Runtime Web WASMテストページが読み込まれました', 'info');
+        });
+        
+        // ログ機能
+        function log(message, type = 'info') {
+            const debugLog = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            debugLog.appendChild(logEntry);
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+        
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+        
+        // ステータス更新
+        function updateOverallStatus(message, type = 'info') {
+            const status = document.getElementById('overallStatus');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            log(message, type);
+        }
+        
+        // 進行状況の更新
+        function updateProgress(percentage) {
+            const progressBar = document.getElementById('testProgress');
+            const progressFill = document.getElementById('testProgressFill');
+            
+            if (percentage > 0) {
+                progressBar.style.display = 'block';
+                progressFill.style.width = percentage + '%';
+            } else {
+                progressBar.style.display = 'none';
+            }
+        }
+        
+        // 環境チェック
+        function checkEnvironment() {
+            const features = [
+                {
+                    name: 'WebAssembly',
+                    available: typeof WebAssembly !== 'undefined',
+                    detail: typeof WebAssembly !== 'undefined' ? 'サポート済み' : '未対応'
+                },
+                {
+                    name: 'SharedArrayBuffer',
+                    available: typeof SharedArrayBuffer !== 'undefined',
+                    detail: typeof SharedArrayBuffer !== 'undefined' ? 'マルチスレッド対応' : 'シングルスレッドのみ'
+                },
+                {
+                    name: 'ONNX Runtime Web',
+                    available: typeof ort !== 'undefined',
+                    detail: typeof ort !== 'undefined' ? `バージョン: ${ort.version || 'unknown'}` : '未読み込み'
+                },
+                {
+                    name: 'Web Workers',
+                    available: typeof Worker !== 'undefined',
+                    detail: typeof Worker !== 'undefined' ? 'サポート済み' : '未対応'
+                },
+                {
+                    name: 'Hardware Concurrency',
+                    available: navigator.hardwareConcurrency > 0,
+                    detail: `${navigator.hardwareConcurrency || 'unknown'} コア`
+                }
+            ];
+            
+            const featureTable = document.getElementById('featureTable');
+            featureTable.innerHTML = '';
+            
+            features.forEach(feature => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${feature.name}</td>
+                    <td class="${feature.available ? 'feature-available' : 'feature-unavailable'}">
+                        ${feature.available ? '✅ 利用可能' : '❌ 利用不可'}
+                    </td>
+                    <td>${feature.detail}</td>
+                `;
+                featureTable.appendChild(row);
+            });
+            
+            // 全体的な対応状況を判定
+            const criticalFeatures = features.filter(f => ['WebAssembly', 'ONNX Runtime Web'].includes(f.name));
+            const allCriticalSupported = criticalFeatures.every(f => f.available);
+            
+            if (allCriticalSupported) {
+                updateOverallStatus('環境チェック完了: ONNX Runtime Web WASM対応', 'success');
+            } else {
+                updateOverallStatus('環境チェック完了: 一部機能が利用できません', 'warning');
+            }
+        }
+        
+        // ONNX Runtime Web テスト
+        async function testONNXRuntimeWeb() {
+            if (typeof ort === 'undefined') {
+                log('❌ ONNX Runtime Webが読み込まれていません', 'error');
+                return;
+            }
+            
+            document.getElementById('onnxTestBtn').disabled = true;
+            updateProgress(0);
+            
+            try {
+                log('=== ONNX Runtime Web テスト開始 ===', 'info');
+                updateProgress(10);
+                
+                // バージョン情報
+                log(`ONNX Runtime Web バージョン: ${ort.version || 'unknown'}`, 'info');
+                updateProgress(20);
+                
+                // 利用可能なバックエンドの確認
+                log('利用可能なバックエンド:', 'info');
+                const backends = ['webgl', 'wasm', 'webgpu'];
+                
+                for (const backend of backends) {
+                    updateProgress(30 + backends.indexOf(backend) * 20);
+                    try {
+                        const supported = await checkBackendSupport(backend);
+                        log(`  ${backend}: ${supported ? '✅ サポート' : '❌ 未サポート'}`, supported ? 'success' : 'warning');
+                    } catch (error) {
+                        log(`  ${backend}: ❌ エラー - ${error.message}`, 'error');
+                    }
+                }
+                
+                updateProgress(90);
+                
+                // WASM設定の確認
+                if (ort.env && ort.env.wasm) {
+                    log('WASM設定:', 'info');
+                    log(`  wasmPaths: ${ort.env.wasm.wasmPaths || 'デフォルト'}`, 'info');
+                    log(`  numThreads: ${ort.env.wasm.numThreads || 'デフォルト'}`, 'info');
+                    log(`  simd: ${ort.env.wasm.simd || false}`, 'info');
+                }
+                
+                updateProgress(100);
+                log('✅ ONNX Runtime Web テスト完了', 'success');
+                
+            } catch (error) {
+                log(`❌ ONNX Runtime Web テストエラー: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('onnxTestBtn').disabled = false;
+                setTimeout(() => updateProgress(0), 2000);
+            }
+        }
+        
+        // バックエンドサポートチェック
+        async function checkBackendSupport(backend) {
+            try {
+                // 簡単なテストモデルを作成
+                const testModel = createTestModel();
+                
+                // セッションを作成してテスト
+                const session = await ort.InferenceSession.create(testModel, {
+                    executionProviders: [backend]
+                });
+                
+                await session.release();
+                return true;
+                
+            } catch (error) {
+                console.warn(`Backend ${backend} test failed:`, error);
+                return false;
+            }
+        }
+        
+        // テスト用の最小モデルを作成
+        function createTestModel() {
+            // 最小限のONNXモデル（恒等関数）をバイナリで作成
+            const modelBytes = new Uint8Array([
+                0x08, 0x01, 0x12, 0x0c, 0x62, 0x61, 0x63, 0x6b, 0x65, 0x6e, 0x64, 0x2d, 0x74, 0x65, 0x73, 0x74,
+                0x3a, 0x20, 0x0a, 0x01, 0x78, 0x12, 0x01, 0x79, 0x22, 0x08, 0x49, 0x64, 0x65, 0x6e, 0x74, 0x69,
+                0x74, 0x79, 0x12, 0x0c, 0x74, 0x65, 0x73, 0x74, 0x2d, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x2d, 0x76,
+                0x31
+            ]);
+            return modelBytes;
+        }
+        
+        // WASMバックエンドテスト
+        async function testWASMBackends() {
+            if (typeof ort === 'undefined') {
+                log('❌ ONNX Runtime Webが読み込まれていません', 'error');
+                return;
+            }
+            
+            document.getElementById('wasmTestBtn').disabled = true;
+            updateProgress(0);
+            
+            try {
+                log('=== WASMバックエンドテスト開始 ===', 'info');
+                updateProgress(10);
+                
+                // WASM設定の適用
+                ort.env.wasm.wasmPaths = './libs/';
+                ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 4, 4);
+                ort.env.wasm.simd = true;
+                
+                if (typeof SharedArrayBuffer !== 'undefined') {
+                    ort.env.wasm.proxy = true;
+                }
+                
+                log('WASM設定を適用しました', 'info');
+                updateProgress(30);
+                
+                // WASMファイルの存在確認
+                const wasmFiles = [
+                    'ort-wasm.wasm',
+                    'ort-wasm-simd.wasm',
+                    'ort-wasm-threaded.wasm',
+                    'ort-wasm-simd-threaded.wasm'
+                ];
+                
+                for (const wasmFile of wasmFiles) {
+                    try {
+                        const response = await fetch(`./libs/${wasmFile}`, { method: 'HEAD' });
+                        if (response.ok) {
+                            const size = response.headers.get('content-length');
+                            log(`✅ ${wasmFile}: 存在 (${Math.round(size / 1024)} KB)`, 'success');
+                        } else {
+                            log(`❌ ${wasmFile}: 見つかりません (HTTP ${response.status})`, 'error');
+                        }
+                    } catch (error) {
+                        log(`❌ ${wasmFile}: アクセスエラー - ${error.message}`, 'error');
+                    }
+                }
+                
+                updateProgress(60);
+                
+                // WASMバックエンドでのセッション作成テスト
+                try {
+                    const testModel = createTestModel();
+                    const session = await ort.InferenceSession.create(testModel, {
+                        executionProviders: ['wasm'],
+                        graphOptimizationLevel: 'all',
+                        executionMode: 'sequential'
+                    });
+                    
+                    log('✅ WASMセッション作成成功', 'success');
+                    
+                    // 簡単な推論テスト
+                    const inputTensor = new ort.Tensor('float32', [1, 2, 3, 4], [1, 4]);
+                    const feeds = { x: inputTensor };
+                    const results = await session.run(feeds);
+                    
+                    log('✅ WASM推論テスト成功', 'success');
+                    
+                    await session.release();
+                    
+                } catch (error) {
+                    log(`❌ WASMセッションテストエラー: ${error.message}`, 'error');
+                }
+                
+                updateProgress(100);
+                log('✅ WASMバックエンドテスト完了', 'success');
+                
+            } catch (error) {
+                log(`❌ WASMバックエンドテストエラー: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('wasmTestBtn').disabled = false;
+                setTimeout(() => updateProgress(0), 2000);
+            }
+        }
+        
+        // モデルローディングテスト
+        async function testModelLoading() {
+            document.getElementById('modelTestBtn').disabled = true;
+            updateProgress(0);
+            
+            try {
+                log('=== モデルローディングテスト開始 ===', 'info');
+                updateProgress(10);
+                
+                const modelFiles = [
+                    'models/text_det.onnx',
+                    'models/text_rec_jp.onnx',
+                    'models/text_angle.onnx',
+                    'models/charset_jp.txt'
+                ];
+                
+                for (let i = 0; i < modelFiles.length; i++) {
+                    const modelFile = modelFiles[i];
+                    updateProgress(20 + (i * 20));
+                    
+                    try {
+                        const response = await fetch(modelFile, { method: 'HEAD' });
+                        if (response.ok) {
+                            const size = response.headers.get('content-length');
+                            const sizeKB = Math.round(size / 1024);
+                            
+                            if (modelFile.endsWith('.onnx') && size < 1000000) {
+                                log(`⚠️ ${modelFile}: サイズが小さすぎます (${sizeKB} KB) - プレースホルダーファイルの可能性`, 'warning');
+                            } else {
+                                log(`✅ ${modelFile}: 正常 (${sizeKB} KB)`, 'success');
+                            }
+                        } else {
+                            log(`❌ ${modelFile}: 見つかりません (HTTP ${response.status})`, 'error');
+                        }
+                    } catch (error) {
+                        log(`❌ ${modelFile}: アクセスエラー - ${error.message}`, 'error');
+                    }
+                }
+                
+                updateProgress(100);
+                log('✅ モデルローディングテスト完了', 'success');
+                
+            } catch (error) {
+                log(`❌ モデルローディングテストエラー: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('modelTestBtn').disabled = false;
+                setTimeout(() => updateProgress(0), 2000);
+            }
+        }
+        
+        // パフォーマンステスト
+        async function runPerformanceTest() {
+            if (typeof ort === 'undefined') {
+                log('❌ ONNX Runtime Webが読み込まれていません', 'error');
+                return;
+            }
+            
+            document.getElementById('perfTestBtn').disabled = true;
+            
+            try {
+                log('=== パフォーマンステスト開始 ===', 'info');
+                
+                const backends = ['wasm', 'webgl'];
+                const results = [];
+                
+                for (const backend of backends) {
+                    try {
+                        log(`${backend}バックエンドのテスト中...`, 'info');
+                        
+                        const startTime = performance.now();
+                        
+                        // セッション作成
+                        const testModel = createTestModel();
+                        const session = await ort.InferenceSession.create(testModel, {
+                            executionProviders: [backend]
+                        });
+                        
+                        const initTime = performance.now() - startTime;
+                        
+                        // 推論テスト
+                        const inferenceStart = performance.now();
+                        const inputTensor = new ort.Tensor('float32', [1, 2, 3, 4], [1, 4]);
+                        const feeds = { x: inputTensor };
+                        
+                        // 複数回実行して平均を取る
+                        const iterations = 10;
+                        for (let i = 0; i < iterations; i++) {
+                            await session.run(feeds);
+                        }
+                        
+                        const inferenceTime = (performance.now() - inferenceStart) / iterations;
+                        
+                        await session.release();
+                        
+                        results.push({
+                            backend,
+                            initTime: Math.round(initTime),
+                            inferenceTime: Math.round(inferenceTime * 100) / 100,
+                            memoryUsage: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) : 'N/A'
+                        });
+                        
+                        log(`✅ ${backend}: 初期化 ${Math.round(initTime)}ms, 推論 ${Math.round(inferenceTime * 100) / 100}ms`, 'success');
+                        
+                    } catch (error) {
+                        log(`❌ ${backend}テストエラー: ${error.message}`, 'error');
+                        results.push({
+                            backend,
+                            initTime: 'エラー',
+                            inferenceTime: 'エラー',
+                            memoryUsage: 'エラー'
+                        });
+                    }
+                }
+                
+                // 結果表示
+                const performanceTable = document.getElementById('performanceTable');
+                performanceTable.innerHTML = '';
+                
+                results.forEach(result => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${result.backend}</td>
+                        <td>${result.initTime}${typeof result.initTime === 'number' ? 'ms' : ''}</td>
+                        <td>${result.inferenceTime}${typeof result.inferenceTime === 'number' ? 'ms' : ''}</td>
+                        <td>${result.memoryUsage}${typeof result.memoryUsage === 'number' ? 'MB' : ''}</td>
+                    `;
+                    performanceTable.appendChild(row);
+                });
+                
+                document.getElementById('performanceResults').style.display = 'block';
+                log('✅ パフォーマンステスト完了', 'success');
+                
+            } catch (error) {
+                log(`❌ パフォーマンステストエラー: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('perfTestBtn').disabled = false;
+            }
+        }
+        
+        // エラーハンドリング
+        window.addEventListener('error', function(event) {
+            log(`JavaScript Error: ${event.message} at ${event.filename}:${event.lineno}`, 'error');
+        });
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            log(`Unhandled Promise Rejection: ${event.reason}`, 'error');
+        });
+    </script>
+</body>
+</html>

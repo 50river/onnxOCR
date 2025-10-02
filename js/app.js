@@ -2924,40 +2924,67 @@ class ReceiptOCRApp {
             existingNotification.remove();
         }
         
+        // GitHub Pages環境の検出
+        const isGitHubPages = window.location.hostname.includes('github.io') || 
+                             window.location.hostname.includes('github.com');
+        const isGitHubPagesMode = window.GITHUB_PAGES_MODE || window.FORCE_TESSERACT_FALLBACK;
+        
         // 通知要素を作成
         const notification = document.createElement('div');
         notification.className = 'fallback-notification';
-        notification.innerHTML = `
-            <div class="notification-content">
-                <div class="notification-icon">⚠️</div>
-                <div class="notification-text">
-                    <strong>フォールバックモード</strong>
-                    <p>高性能OCRが利用できないため、代替エンジンを使用しています。</p>
-                    ${reason ? `<small>理由: ${reason}</small>` : ''}
-                    ${performanceDifference ? `
-                        <details>
-                            <summary>性能への影響</summary>
-                            <ul>
-                                <li>${performanceDifference.speed}</li>
-                                <li>${performanceDifference.accuracy}</li>
-                                <li>${performanceDifference.features}</li>
-                            </ul>
-                        </details>
-                    ` : ''}
+        
+        let notificationContent;
+        if (isGitHubPages || isGitHubPagesMode) {
+            // GitHub Pages専用の通知
+            notificationContent = `
+                <div class="notification-content">
+                    <div class="notification-icon">📱</div>
+                    <div class="notification-text">
+                        <strong>軽量版モード</strong>
+                        <p>現在、Tesseract.jsエンジンを使用した軽量版として動作しています。</p>
+                        <p>基本的なOCR機能をご利用いただけます。処理には少し時間がかかる場合があります。</p>
+                        <small>GitHub Pages環境での動作</small>
+                    </div>
+                    <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
                 </div>
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
-            </div>
-        `;
+            `;
+        } else {
+            // 通常のフォールバック通知
+            notificationContent = `
+                <div class="notification-content">
+                    <div class="notification-icon">⚠️</div>
+                    <div class="notification-text">
+                        <strong>フォールバックモード</strong>
+                        <p>高性能OCRが利用できないため、代替エンジンを使用しています。</p>
+                        ${reason ? `<small>理由: ${reason}</small>` : ''}
+                        ${performanceDifference ? `
+                            <details>
+                                <summary>性能への影響</summary>
+                                <ul>
+                                    <li>${performanceDifference.speed}</li>
+                                    <li>${performanceDifference.accuracy}</li>
+                                    <li>${performanceDifference.features}</li>
+                                </ul>
+                            </details>
+                        ` : ''}
+                    </div>
+                    <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+                </div>
+            `;
+        }
+        
+        notification.innerHTML = notificationContent;
         
         // 通知をページに追加
         document.body.appendChild(notification);
         
-        // 自動で非表示にする（10秒後）
+        // GitHub Pagesモードの場合は長めに表示（15秒）、通常は10秒
+        const displayTime = (isGitHubPages || isGitHubPagesMode) ? 15000 : 10000;
         setTimeout(() => {
             if (notification.parentElement) {
                 notification.remove();
             }
-        }, 10000);
+        }, displayTime);
     }
 
     /**

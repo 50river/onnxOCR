@@ -17,6 +17,31 @@ const libraries = [
     filename: 'ort.min.js'
   },
   {
+    name: 'ONNX Runtime Web WASM',
+    url: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort-wasm.wasm',
+    filename: 'ort-wasm.wasm'
+  },
+  {
+    name: 'ONNX Runtime Web WASM (SIMD)',
+    url: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort-wasm-simd.wasm',
+    filename: 'ort-wasm-simd.wasm'
+  },
+  {
+    name: 'ONNX Runtime Web WASM (Threaded)',
+    url: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort-wasm-threaded.wasm',
+    filename: 'ort-wasm-threaded.wasm'
+  },
+  {
+    name: 'ONNX Runtime Web WASM (SIMD + Threaded)',
+    url: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort-wasm-simd-threaded.wasm',
+    filename: 'ort-wasm-simd-threaded.wasm'
+  },
+  {
+    name: 'ONNX Runtime Web Worker',
+    url: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort-web-worker.js',
+    filename: 'ort-web-worker.js'
+  },
+  {
     name: 'Tesseract.js',
     url: 'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.4/dist/tesseract.min.js',
     filename: 'tesseract.min.js'

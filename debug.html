@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - 領収書OCR</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .error { color: red; background: #ffe6e6; padding: 10px; margin: 10px 0; }
+        .success { color: green; background: #e6ffe6; padding: 10px; margin: 10px 0; }
+        .info { color: blue; background: #e6f3ff; padding: 10px; margin: 10px 0; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>領収書OCR - デバッグ情報</h1>
+    <div id="debug-output"></div>
+    
+    <script>
+        const debugOutput = document.getElementById('debug-output');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            debugOutput.appendChild(div);
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+        
+        async function runDiagnostics() {
+            log('🔍 診断を開始します...', 'info');
+            
+            // 0. GitHub Pages環境の確認
+            log('0. GitHub Pages環境確認', 'info');
+            const isGitHubPages = window.location.hostname.includes('github.io') || 
+                                 window.location.hostname.includes('github.com');
+            const forceFallback = window.FORCE_TESSERACT_FALLBACK || window.GITHUB_PAGES_MODE;
+            
+            log(`ホスト名: ${window.location.hostname}`, 'info');
+            log(`GitHub Pages環境: ${isGitHubPages ? '✅ はい' : '❌ いいえ'}`, isGitHubPages ? 'success' : 'info');
+            log(`フォールバックモード: ${forceFallback ? '✅ 有効' : '❌ 無効'}`, forceFallback ? 'success' : 'info');
+            
+            // 1. 基本的なAPI確認
+            log('1. 基本API確認', 'info');
+            
+            if (typeof fetch !== 'undefined') {
+                log('✅ fetch API利用可能', 'success');
+            } else {
+                log('❌ fetch API利用不可', 'error');
+            }
+            
+            if (typeof Worker !== 'undefined') {
+                log('✅ Web Worker利用可能', 'success');
+            } else {
+                log('❌ Web Worker利用不可', 'error');
+            }
+            
+            if (typeof indexedDB !== 'undefined') {
+                log('✅ IndexedDB利用可能', 'success');
+            } else {
+                log('❌ IndexedDB利用不可', 'error');
+            }
+            
+            // 2. ライブラリファイル確認
+            log('2. ライブラリファイル確認', 'info');
+            
+            const libraries = [
+                'libs/ort.min.js',
+                'libs/tesseract.min.js',
+                'libs/opencv.js',
+                'libs/jszip.min.js'
+            ];
+            
+            for (const lib of libraries) {
+                try {
+                    const response = await fetch(lib, { method: 'HEAD' });
+                    if (response.ok) {
+                        log(`✅ ${lib} (${response.headers.get('content-length')} bytes)`, 'success');
+                    } else {
+                        log(`❌ ${lib} - HTTP ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    log(`❌ ${lib} - ${error.message}`, 'error');
+                }
+            }
+            
+            // 3. モデルファイル確認
+            log('3. モデルファイル確認', 'info');
+            
+            const models = [
+                'models/text_det.onnx',
+                'models/text_rec_jp.onnx',
+                'models/text_angle.onnx',
+                'models/charset_jp.txt'
+            ];
+            
+            for (const model of models) {
+                try {
+                    const response = await fetch(model, { method: 'HEAD' });
+                    if (response.ok) {
+                        const size = response.headers.get('content-length');
+                        if (parseInt(size) < 1000) {
+                            log(`⚠️ ${model} (${size} bytes) - サイズが小さすぎます`, 'error');
+                        } else {
+                            log(`✅ ${model} (${size} bytes)`, 'success');
+                        }
+                    } else {
+                        log(`❌ ${model} - HTTP ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    log(`❌ ${model} - ${error.message}`, 'error');
+                }
+            }
+            
+            // 4. JSファイル確認
+            log('4. JSファイル確認', 'info');
+            
+            const jsFiles = [
+                'js/app.js',
+                'js/ocr-engine.js',
+                'js/field-extractor.js',
+                'js/ocr-worker.js'
+            ];
+            
+            for (const jsFile of jsFiles) {
+                try {
+                    const response = await fetch(jsFile, { method: 'HEAD' });
+                    if (response.ok) {
+                        log(`✅ ${jsFile} (${response.headers.get('content-length')} bytes)`, 'success');
+                    } else {
+                        log(`❌ ${jsFile} - HTTP ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    log(`❌ ${jsFile} - ${error.message}`, 'error');
+                }
+            }
+            
+            // 5. ライブラリ読み込みテスト
+            log('5. ライブラリ読み込みテスト', 'info');
+            
+            try {
+                // ONNX Runtime Web
+                const ortScript = document.createElement('script');
+                ortScript.src = 'libs/ort.min.js';
+                ortScript.onload = () => {
+                    if (typeof ort !== 'undefined') {
+                        log('✅ ONNX Runtime Web読み込み成功', 'success');
+                        log(`ONNX Runtime バージョン: ${ort.version || 'unknown'}`, 'info');
+                    } else {
+                        log('❌ ONNX Runtime Web読み込み失敗', 'error');
+                    }
+                };
+                ortScript.onerror = () => {
+                    log('❌ ONNX Runtime Web読み込みエラー', 'error');
+                };
+                document.head.appendChild(ortScript);
+                
+            } catch (error) {
+                log(`❌ ライブラリ読み込みエラー: ${error.message}`, 'error');
+            }
+            
+            // 6. Service Worker確認
+            log('6. Service Worker確認', 'info');
+            
+            if ('serviceWorker' in navigator) {
+                log('✅ Service Worker API利用可能', 'success');
+                
+                try {
+                    const registration = await navigator.serviceWorker.getRegistration();
+                    if (registration) {
+                        log(`✅ Service Worker登録済み: ${registration.scope}`, 'success');
+                        log(`状態: ${registration.active ? registration.active.state : 'inactive'}`, 'info');
+                    } else {
+                        log('⚠️ Service Worker未登録', 'error');
+                    }
+                } catch (error) {
+                    log(`❌ Service Worker確認エラー: ${error.message}`, 'error');
+                }
+            } else {
+                log('❌ Service Worker API利用不可', 'error');
+            }
+            
+            // 7. エラーログ監視
+            log('7. エラーログ監視開始', 'info');
+            
+            window.addEventListener('error', (event) => {
+                log(`❌ JavaScript Error: ${event.message} at ${event.filename}:${event.lineno}`, 'error');
+            });
+            
+            window.addEventListener('unhandledrejection', (event) => {
+                log(`❌ Unhandled Promise Rejection: ${event.reason}`, 'error');
+            });
+            
+            log('🎯 診断完了', 'info');
+        }
+        
+        // 診断実行
+        runDiagnostics().catch(error => {
+            log(`❌ 診断エラー: ${error.message}`, 'error');
+        });
+    </script>
+</body>
+</html>

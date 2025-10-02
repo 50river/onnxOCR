@@ -57,6 +57,21 @@ class OCREngine {
         try {
             console.log('OCRエンジンの初期化を開始...');
             
+            // GitHub Pages環境またはフォールバック強制モードの検出
+            const isGitHubPages = window.location.hostname.includes('github.io') || 
+                                 window.location.hostname.includes('github.com');
+            const forceFallback = window.FORCE_TESSERACT_FALLBACK || window.GITHUB_PAGES_MODE;
+            
+            if (isGitHubPages || forceFallback) {
+                console.log('GitHub Pages環境またはフォールバック強制モードを検出');
+                console.log('ONNXモデルをスキップしてTesseract.jsフォールバックを使用します');
+                
+                // 直接フォールバックを初期化
+                await this._initializeFallback();
+                this._notifyInitializationComplete();
+                return;
+            }
+            
             // ONNX Runtime Webの初期化を試行
             const onnxInitialized = await this._initializeONNXRuntime();
             
@@ -111,7 +126,34 @@ class OCREngine {
             
             // ONNX Runtime Webの設定
             ort.env.wasm.wasmPaths = './libs/';
+            ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 4, 4);
+            ort.env.wasm.simd = true;
             ort.env.logLevel = 'warning';
+            
+            // WASMファイルの明示的な指定
+            ort.env.wasm.wasmBinary = {
+                'ort-wasm.wasm': './libs/ort-wasm.wasm',
+                'ort-wasm-simd.wasm': './libs/ort-wasm-simd.wasm',
+                'ort-wasm-threaded.wasm': './libs/ort-wasm-threaded.wasm',
+                'ort-wasm-simd-threaded.wasm': './libs/ort-wasm-simd-threaded.wasm'
+            };
+            
+            // WASMバックエンド用の追加設定
+            if (selectedBackend === 'wasm') {
+                // マルチスレッド対応（SharedArrayBufferが利用可能な場合）
+                if (typeof SharedArrayBuffer !== 'undefined') {
+                    ort.env.wasm.proxy = true;
+                }
+                // メモリ最適化
+                ort.env.wasm.initTimeout = 30000; // 30秒
+                
+                console.log('WASM設定:', {
+                    numThreads: ort.env.wasm.numThreads,
+                    simd: ort.env.wasm.simd,
+                    proxy: ort.env.wasm.proxy,
+                    sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined'
+                });
+            }
             
             console.log(`ONNX Runtime Web初期化完了 (バックエンド: ${this.currentBackend})`);
             return true;
@@ -226,19 +268,85 @@ class OCREngine {
     async _checkWASMSupport() {
         try {
             if (typeof WebAssembly === 'undefined') {
+                console.warn('WebAssembly is not supported');
+                return false;
+            }
+            
+            // WebAssembly機能の詳細チェック
+            const wasmFeatures = {
+                basic: typeof WebAssembly.instantiate === 'function',
+                streaming: typeof WebAssembly.instantiateStreaming === 'function',
+                simd: await this._checkWASMSIMDSupport(),
+                threads: await this._checkWASMThreadsSupport()
+            };
+            
+            console.log('WASM Features:', wasmFeatures);
+            
+            if (!wasmFeatures.basic) {
                 return false;
             }
             
             // 簡単なテストセッションを作成して確認
             const testSession = await ort.InferenceSession.create(
                 this._createTestModel(), 
-                { executionProviders: ['wasm'] }
+                { 
+                    executionProviders: ['wasm'],
+                    graphOptimizationLevel: 'all',
+                    executionMode: 'sequential'
+                }
             );
             await testSession.release();
             
             return true;
         } catch (error) {
             console.warn('WASMテストエラー:', error);
+            return false;
+        }
+    }
+
+    /**
+     * WASM SIMD サポートの確認
+     * @private
+     */
+    async _checkWASMSIMDSupport() {
+        try {
+            // SIMD サポートの確認用のWASMバイナリ
+            const simdTestWasm = new Uint8Array([
+                0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+                0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7b,
+                0x03, 0x02, 0x01, 0x00,
+                0x0a, 0x0a, 0x01, 0x08, 0x00, 0x41, 0x00, 0xfd, 0x0f, 0x0b
+            ]);
+            
+            const module = await WebAssembly.compile(simdTestWasm);
+            return true;
+        } catch (error) {
+            console.log('WASM SIMD not supported:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * WASM Threads サポートの確認
+     * @private
+     */
+    async _checkWASMThreadsSupport() {
+        try {
+            // SharedArrayBuffer が利用可能かチェック
+            if (typeof SharedArrayBuffer === 'undefined') {
+                return false;
+            }
+            
+            // Cross-Origin-Embedder-Policy と Cross-Origin-Opener-Policy の確認
+            const headers = {
+                'Cross-Origin-Embedder-Policy': 'require-corp',
+                'Cross-Origin-Opener-Policy': 'same-origin'
+            };
+            
+            // 実際のスレッドサポートは環境依存なので、基本的な条件のみチェック
+            return typeof Worker !== 'undefined' && typeof SharedArrayBuffer !== 'undefined';
+        } catch (error) {
+            console.log('WASM Threads not supported:', error.message);
             return false;
         }
     }
@@ -414,16 +522,37 @@ class OCREngine {
         try {
             const modelPath = `${this.config.modelsPath}text_det.onnx`;
             
-            // モデルファイルの存在確認
+            // モデルファイルの存在確認と検証
             const response = await fetch(modelPath, { method: 'HEAD' });
             if (!response.ok) {
                 throw new Error(`検出モデルファイルが見つかりません: ${modelPath}`);
             }
             
-            // ONNXセッションの作成
-            this.models.detection = await ort.InferenceSession.create(modelPath, {
-                executionProviders: [this.currentBackend]
-            });
+            // モデルファイルサイズの確認
+            const fileSize = parseInt(response.headers.get('content-length') || '0');
+            if (fileSize < 1000000) { // 1MB未満の場合は警告
+                console.warn(`検出モデルファイルのサイズが小さすぎます (${fileSize} bytes) - プレースホルダーファイルの可能性があります`);
+                log(`⚠️ 検出モデルファイルサイズ: ${Math.round(fileSize / 1024)} KB (実際のモデルは通常20MB以上)`, 'warning');
+            } else {
+                log(`✅ 検出モデルファイルサイズ: ${Math.round(fileSize / 1024 / 1024)} MB`, 'success');
+            }
+            
+            // ONNXセッションの作成（WASMバックエンド用最適化）
+            const sessionOptions = {
+                executionProviders: [this.currentBackend],
+                graphOptimizationLevel: 'all',
+                executionMode: 'sequential'
+            };
+            
+            // WASMバックエンド用の追加設定
+            if (this.currentBackend === 'wasm') {
+                sessionOptions.enableCpuMemArena = true;
+                sessionOptions.enableMemPattern = true;
+                sessionOptions.interOpNumThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+                sessionOptions.intraOpNumThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+            }
+            
+            this.models.detection = await ort.InferenceSession.create(modelPath, sessionOptions);
             
             console.log('検出モデルを読み込みました');
             
@@ -441,16 +570,37 @@ class OCREngine {
         try {
             const modelPath = `${this.config.modelsPath}text_rec_jp.onnx`;
             
-            // モデルファイルの存在確認
+            // モデルファイルの存在確認と検証
             const response = await fetch(modelPath, { method: 'HEAD' });
             if (!response.ok) {
                 throw new Error(`認識モデルファイルが見つかりません: ${modelPath}`);
             }
             
-            // ONNXセッションの作成
-            this.models.recognition = await ort.InferenceSession.create(modelPath, {
-                executionProviders: [this.currentBackend]
-            });
+            // モデルファイルサイズの確認
+            const fileSize = parseInt(response.headers.get('content-length') || '0');
+            if (fileSize < 1000000) { // 1MB未満の場合は警告
+                console.warn(`認識モデルファイルのサイズが小さすぎます (${fileSize} bytes) - プレースホルダーファイルの可能性があります`);
+                log(`⚠️ 認識モデルファイルサイズ: ${Math.round(fileSize / 1024)} KB (実際のモデルは通常10MB以上)`, 'warning');
+            } else {
+                log(`✅ 認識モデルファイルサイズ: ${Math.round(fileSize / 1024 / 1024)} MB`, 'success');
+            }
+            
+            // ONNXセッションの作成（WASMバックエンド用最適化）
+            const sessionOptions = {
+                executionProviders: [this.currentBackend],
+                graphOptimizationLevel: 'all',
+                executionMode: 'sequential'
+            };
+            
+            // WASMバックエンド用の追加設定
+            if (this.currentBackend === 'wasm') {
+                sessionOptions.enableCpuMemArena = true;
+                sessionOptions.enableMemPattern = true;
+                sessionOptions.interOpNumThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+                sessionOptions.intraOpNumThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+            }
+            
+            this.models.recognition = await ort.InferenceSession.create(modelPath, sessionOptions);
             
             console.log('認識モデルを読み込みました');
             
@@ -468,16 +618,37 @@ class OCREngine {
         try {
             const modelPath = `${this.config.modelsPath}text_angle.onnx`;
             
-            // モデルファイルの存在確認
+            // モデルファイルの存在確認と検証
             const response = await fetch(modelPath, { method: 'HEAD' });
             if (!response.ok) {
                 throw new Error(`角度分類モデルファイルが見つかりません: ${modelPath}`);
             }
             
-            // ONNXセッションの作成
-            this.models.angleClassification = await ort.InferenceSession.create(modelPath, {
-                executionProviders: [this.currentBackend]
-            });
+            // モデルファイルサイズの確認
+            const fileSize = parseInt(response.headers.get('content-length') || '0');
+            if (fileSize < 100000) { // 100KB未満の場合は警告
+                console.warn(`角度分類モデルファイルのサイズが小さすぎます (${fileSize} bytes) - プレースホルダーファイルの可能性があります`);
+                log(`⚠️ 角度分類モデルファイルサイズ: ${Math.round(fileSize / 1024)} KB (実際のモデルは通常1MB以上)`, 'warning');
+            } else {
+                log(`✅ 角度分類モデルファイルサイズ: ${Math.round(fileSize / 1024)} KB`, 'success');
+            }
+            
+            // ONNXセッションの作成（WASMバックエンド用最適化）
+            const sessionOptions = {
+                executionProviders: [this.currentBackend],
+                graphOptimizationLevel: 'all',
+                executionMode: 'sequential'
+            };
+            
+            // WASMバックエンド用の追加設定
+            if (this.currentBackend === 'wasm') {
+                sessionOptions.enableCpuMemArena = true;
+                sessionOptions.enableMemPattern = true;
+                sessionOptions.interOpNumThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+                sessionOptions.intraOpNumThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+            }
+            
+            this.models.angleClassification = await ort.InferenceSession.create(modelPath, sessionOptions);
             
             console.log('角度分類モデルを読み込みました');
             
